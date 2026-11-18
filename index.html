@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operational Readiness</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style id="css">
+/* Layout: fixed tool bar, release verdict line, feature x category matrix with a sticky feature column, slide-in drawer for detail. */
+:root{
+  --bg:#edf0f2; --surface:#ffffff; --surface-2:#f5f7f8; --ink:#14212b; --muted:#566573; --line:#d6dde2;
+  --accent:#0a6683; --accent-ink:#ffffff;
+  --ok:#17703f; --warn:#8f5c06; --bad:#a92c24; --idle:#6f7d89;
+  --font-body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-cond:"IBM Plex Sans Condensed", "Arial Narrow", "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1418; --surface:#151d23; --surface-2:#1b252c; --ink:#e4ebef; --muted:#97a6b2; --line:#29363f;
+    --accent:#52b9d8; --accent-ink:#06222c;
+    --ok:#5cc98a; --warn:#e3ad52; --bad:#f07468; --idle:#8b99a5;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1418; --surface:#151d23; --surface-2:#1b252c; --ink:#e4ebef; --muted:#97a6b2; --line:#29363f;
+  --accent:#52b9d8; --accent-ink:#06222c;
+  --ok:#5cc98a; --warn:#e3ad52; --bad:#f07468; --idle:#8b99a5;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 14px/1.45 var(--font-body);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{cursor:default;opacity:.45}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+h1,h2,h3{text-wrap:balance;margin:0}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line);padding:12px 20px;display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.brand h1{font:600 18px/1.2 var(--font-body);letter-spacing:-.01em}
+.save{font:500 12px var(--font-mono);color:var(--muted)}
+.save.dirty{color:var(--warn)}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.search input,.sel select{height:34px;border:1px solid var(--line);background:var(--surface-2);border-radius:6px;padding:0 10px}
+.search input{width:220px}
+.sel{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px}
+.btn{height:34px;padding:0 14px;border-radius:6px;border:1px solid var(--line);background:var(--surface);font-weight:500}
+.btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover:not(:disabled){filter:brightness(1.08);color:var(--accent-ink)}
+.btn.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}
+.btn.small{height:28px;padding:0 10px;font-size:13px}
+.link{background:none;border:0;padding:0;color:var(--accent);font-weight:500;text-decoration:underline;text-underline-offset:2px}
+
+main{padding:18px 20px 40px;display:flex;flex-direction:column;gap:16px}
+.banner{border:1px solid var(--line);background:var(--surface);border-left:4px solid var(--accent);border-radius:6px;padding:10px 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:13.5px}
+.banner.ro{border-left-color:var(--warn)}
+
+/* summary */
+.summary{display:flex;flex-wrap:wrap;gap:14px 28px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 18px}
+.verdict{display:flex;flex-direction:column;gap:2px;padding-left:12px;border-left:4px solid var(--idle);min-width:220px}
+.verdict strong{font:600 16px/1.25 var(--font-body)}
+.verdict span{color:var(--muted);font-size:13px}
+.verdict.v-ready{border-color:var(--ok)} .verdict.v-blocked{border-color:var(--bad)} .verdict.v-progress{border-color:var(--warn)}
+.stats{display:flex;gap:24px;margin:0;flex-wrap:wrap}
+.stats div{display:flex;flex-direction:column}
+.stats dt{font-size:12px;color:var(--muted)}
+.stats dd{margin:0;font:500 20px/1.2 var(--font-mono);font-variant-numeric:tabular-nums}
+.stats dd.bad{color:var(--bad)}
+.legend{list-style:none;margin:0 0 0 auto;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.legend li{font:500 12px var(--font-cond);padding:3px 8px;border-radius:999px;border:1px solid transparent}
+
+/* status colours, shared by cells, chips and buttons */
+.s-ready{background:color-mix(in srgb,var(--ok) 14%,var(--surface));color:var(--ok);border-color:color-mix(in srgb,var(--ok) 35%,transparent)}
+.s-progress{background:color-mix(in srgb,var(--warn) 13%,var(--surface));color:var(--warn);border-color:color-mix(in srgb,var(--warn) 35%,transparent)}
+.s-blocked{background:color-mix(in srgb,var(--bad) 14%,var(--surface));color:var(--bad);border-color:color-mix(in srgb,var(--bad) 45%,transparent)}
+.s-todo{background:var(--surface-2);color:var(--ink);border-color:var(--line)}
+.s-unassessed{background:transparent;color:var(--muted);border:1px dashed color-mix(in srgb,var(--idle) 60%,transparent)}
+.s-na{background:repeating-linear-gradient(135deg,var(--surface-2) 0 6px,transparent 6px 11px);color:var(--muted);border-color:var(--line)}
+
+/* matrix */
+.grid-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.grid{border-collapse:separate;border-spacing:0;min-width:100%}
+.grid th,.grid td{border-bottom:1px solid var(--line);padding:6px;vertical-align:middle}
+.grid thead th{position:sticky;top:0;background:var(--surface);z-index:2;text-align:left;vertical-align:bottom;padding:10px 6px 8px}
+.grid tbody tr:last-child th,.grid tbody tr:last-child td{border-bottom:0}
+.feat-h,.feat{position:sticky;left:0;z-index:3;background:var(--surface);border-right:1px solid var(--line);min-width:250px;max-width:300px}
+.feat-h{z-index:4;font:600 12px var(--font-cond);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding-left:14px!important}
+.cat-h{min-width:112px;max-width:124px}
+.cat-h button{all:unset;cursor:pointer;display:flex;flex-direction:column;gap:2px;border-radius:4px}
+.cat-h button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.cat-h .n{font:600 13px/1.2 var(--font-cond);color:var(--ink)}
+.cat-h .p{font:500 11px var(--font-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.feat{padding:10px 12px 10px 14px!important}
+.feat .fname{all:unset;cursor:pointer;font-weight:600;font-size:14px;line-height:1.3;display:block}
+.feat .fname:hover{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+.feat .fname:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.feat .meta{color:var(--muted);font-size:12px;margin-top:2px;display:flex;flex-wrap:wrap;gap:0 8px}
+.feat .meta .soon{color:var(--warn);font-weight:500}
+.feat .meta .late{color:var(--bad);font-weight:500}
+.feat .row2{display:flex;align-items:center;gap:8px;margin-top:7px}
+.bar{flex:1;height:6px;border-radius:3px;background:var(--surface-2);border:1px solid var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ok)}
+.pct{font:500 12px var(--font-mono);font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
+.chip{font:600 11px var(--font-cond);padding:2px 7px;border-radius:999px;border:1px solid transparent;white-space:nowrap}
+.cell{width:100%;min-height:52px;border-radius:6px;border:1px solid transparent;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:1px;padding:6px 8px;text-align:left;font:600 12.5px/1.2 var(--font-cond)}
+.cell .sub{font:500 11px var(--font-mono);opacity:.85;font-variant-numeric:tabular-nums}
+.cell.s-blocked{box-shadow:inset 3px 0 0 var(--bad)}
+.cell:hover{filter:brightness(.97)}
+.empty{padding:40px 20px;text-align:center;color:var(--muted)}
+.empty p{margin:0 0 12px}
+
+/* drawer */
+.scrim{position:fixed;inset:0;background:rgba(8,14,18,.35);z-index:40}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(480px,100%);background:var(--surface);border-left:1px solid var(--line);z-index:41;display:flex;flex-direction:column;box-shadow:-12px 0 32px rgba(0,0,0,.12)}
+.d-head{display:flex;justify-content:space-between;gap:12px;padding:18px 20px 14px;border-bottom:1px solid var(--line)}
+.d-head h2{font:600 19px/1.25 var(--font-body)}
+.eyebrow{margin:0 0 3px;font:600 12px var(--font-cond);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.q{margin:6px 0 0;color:var(--muted);max-width:60ch}
+.x{width:32px;height:32px;flex:none;border-radius:6px;border:1px solid var(--line);background:var(--surface);font-size:18px;line-height:1}
+.d-body{flex:1;overflow-y:auto;padding:16px 20px 24px;display:flex;flex-direction:column;gap:18px}
+.d-foot{border-top:1px solid var(--line);padding:12px 20px;display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--muted);font-size:13px}
+fieldset{border:0;margin:0;padding:0;min-width:0}
+legend,.lab{font:600 12px var(--font-cond);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding:0}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.segbtn{border-radius:6px;padding:8px 6px;font:600 13px var(--font-cond);border:1px solid transparent}
+.segbtn[aria-pressed="true"]{outline:2px solid currentColor;outline-offset:1px}
+.checks{display:flex;flex-direction:column;gap:2px}
+.count{font-family:var(--font-mono);text-transform:none;letter-spacing:0}
+.check{display:flex;gap:10px;align-items:flex-start;padding:6px 8px;border-radius:6px;cursor:pointer}
+.check:hover{background:var(--surface-2)}
+.check input{margin:3px 0 0;width:16px;height:16px;accent-color:var(--accent);flex:none}
+.check input:checked+span{color:var(--muted);text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--muted) 60%,transparent)}
+.field{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--muted);font-weight:500}
+.field input,.field textarea,.field select{border:1px solid var(--line);background:var(--surface-2);border-radius:6px;padding:8px 10px;color:var(--ink);font-weight:400;font-size:14px;width:100%}
+.field textarea{resize:vertical;min-height:90px;line-height:1.45}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.catlist{display:flex;flex-direction:column;gap:2px}
+.catline{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 8px;border-radius:6px;background:none;border:0;text-align:left;width:100%}
+.catline:hover{background:var(--surface-2)}
+.catcard{border:1px solid var(--line);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--surface)}
+.catcard .hrow{display:flex;gap:6px;align-items:center}
+.catcard .hrow input{flex:1;font-weight:600}
+.catcard input,.catcard textarea{border:1px solid var(--line);background:var(--surface-2);border-radius:6px;padding:7px 9px;width:100%;font-size:13.5px}
+.catcard textarea{resize:vertical;font-size:13px;line-height:1.5}
+.icon{width:28px;height:28px;flex:none;border-radius:6px;border:1px solid var(--line);background:var(--surface)}
+.hint{font-size:12.5px;color:var(--muted);margin:0}
+.tabs{display:flex;gap:6px}
+.tabs .btn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
+.out{width:100%;min-height:320px;font:12px/1.5 var(--font-mono);border:1px solid var(--line);border-radius:6px;background:var(--surface-2);padding:10px;resize:vertical}
+.openlink{font-size:13px;color:var(--accent);word-break:break-all}
+
+@media (max-width:640px){
+  .top{padding:10px 14px} main{padding:14px 14px 32px}
+  .search input{width:100%} .search{flex:1 1 100%}
+  .legend{margin-left:0}
+  .feat-h,.feat{min-width:190px}
+  .two{grid-template-columns:1fr}
+  .seg{grid-template-columns:repeat(2,1fr)}
+}
+@media (prefers-reduced-motion:no-preference){
+  .drawer{animation:slide .18s ease-out}
+  @keyframes slide{from{transform:translateX(24px);opacity:.6}to{transform:none;opacity:1}}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="application/json" id="state">null</script>
+<script id="code">
+(function(){
+'use strict';
+var TITLE='Operational Readiness';
+var FONTS='<link rel="preconnect" href="https://fonts.googleapis.com">\n<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">';
+var STATUSES=[
+  {id:'unassessed',label:'Not assessed'},
+  {id:'na',label:'Not applicable'},
+  {id:'todo',label:'Not started'},
+  {id:'progress',label:'In progress'},
+  {id:'blocked',label:'Blocked'},
+  {id:'ready',label:'Ready'}
+];
+var ST={}; STATUSES.forEach(function(s){ST[s.id]=s;});
+var OVERALL={ready:'Ready to ship',blocked:'Blocked',progress:'In progress',unassessed:'Not assessed'};
+
+function uid(){return Math.random().toString(36).slice(2,10);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+function mkCat(name,question,items){return {id:uid(),name:name,question:question,checklist:items.map(function(t){return {id:uid(),text:t};})};}
+function defaultCategories(){return [
+  mkCat('Documentation','Are the docs people need written and published?',['Release notes drafted','User or admin guide updated','Runbook or operations notes updated','API or integration docs updated']),
+  mkCat('Data migration','Does this change existing data, and is there a tested plan to move it?',['Decide whether a migration is required','Migration scripts written and reviewed','Dry run on a production-sized copy','Run time estimated for the maintenance window','Validation checks to run after migrating','Restore path if the migration fails']),
+  mkCat('Deployment','Does this change how we build, package or deploy?',['Pipeline or packaging changes identified','Infrastructure changes listed (services, queues, storage)','Deployment order and downtime known','Deployment rehearsed in staging','Hosting or operations team briefed']),
+  mkCat('Configuration','Is new or changed configuration needed in each environment?',['New settings, environment variables and secrets listed','Safe defaults chosen','Values set for every environment','Configuration documented for admins']),
+  mkCat('Dependencies','Does this rely on other teams, services or versions?',['Upstream and downstream services identified','Third-party libraries or vendors reviewed','Version compatibility confirmed','Dependent teams have committed dates']),
+  mkCat('Rollback','Can we safely back this out if it goes wrong?',['Rollback steps written','Rollback tested','Point of no return identified','Person who makes the rollback call named']),
+  mkCat('Observability','Will we know quickly if it breaks in production?',['Logging on key paths','Metrics and a dashboard','Alerts with thresholds and an owner','Health checks updated']),
+  mkCat('Security & privacy','Has the change been reviewed for security and data handling?',['Security review or threat model done','Permissions and roles reviewed','Personal or sensitive data handling checked','Dependency and vulnerability scan clean']),
+  mkCat('Performance & capacity','Will it hold up at production scale?',['Load or performance tests run','Capacity and hosting cost impact estimated','Tested against the largest customer dataset','Timeouts and limits reviewed']),
+  mkCat('Testing & QA','Is the feature verified and signed off?',['Automated tests passing','Regression suite run','Upgrade tested from every supported version','QA sign-off']),
+  mkCat('Compatibility','Does it break anything customers or integrations rely on?',['API and contract changes reviewed','Backward compatibility confirmed','Deprecations announced','Supported upgrade paths listed']),
+  mkCat('Release strategy','How will it be turned on, and for whom?',['Feature flag or toggle in place','Rollout plan agreed (pilot, phased or all)','Go / no-go criteria agreed','Kill switch tested']),
+  mkCat('Support & training','Can support and customer teams handle it on day one?',['Support team briefed','Known issues and FAQ written','Demo or training for customer-facing teams','Escalation path defined']),
+  mkCat('Customer communication','Do customers know what is changing and when?',['Announcement drafted','Admins told about any actions they must take','Maintenance window communicated'])
+];}
+
+function seed(){
+  var cats=defaultCategories();
+  function mk(name,owner,release,date,desc,codes,notes){
+    var map={R:'ready',P:'progress',B:'blocked',T:'todo',N:'na',U:'unassessed'};
+    var cells={};
+    cats.forEach(function(c,i){
+      var s=map[codes[i]]||'unassessed';
+      if(s==='unassessed')return;
+      var cell={status:s,checks:{},notes:'',owner:'',due:'',link:''};
+      var n=s==='ready'?c.checklist.length:(s==='progress'||s==='blocked')?Math.ceil(c.checklist.length/2):0;
+      c.checklist.slice(0,n).forEach(function(it){cell.checks[it.id]=true;});
+      if(notes&&notes[i])cell.notes=notes[i];
+      cells[c.id]=cell;
+    });
+    return {id:uid(),name:name,owner:owner,release:release,targetDate:date,description:desc,example:true,cells:cells};
+  }
+  var features=[
+    mk('Bulk CSV import','Priya S.','2027.1','2027-01-22','Import thousands of records from a spreadsheet in one run.',
+      'PBPRPTPRPPNRTT',{1:'Waiting on DBA review of the index rebuild. Dry run took 3h on the largest tenant, which is over the 2h window.',5:'Rollback depends on the migration restore path.'}),
+    mk('SSO with Microsoft Entra ID','Marcus L.','2027.1','2027-01-22','Let customers sign in through their own identity provider.',
+      'RNRRBRRRNRRRRP',{4:'Needs the platform team to upgrade the auth library to 6.x first. They have committed to Dec 12.'}),
+    mk('Search on new index engine','Dana K.','2027.1','2027-01-22','Move product search to the new indexing engine.',
+      'RRRRRRRRRRRRRR'),
+    mk('Reporting API','Tomás R.','2027.2','2027-04-15','Public REST API for pulling reports into BI tools.',
+      'TNPTPUTPUTPTUU')
+  ];
+  return {version:1,categories:cats,features:features,updated:null};
+}
+
+/* ---------- state ---------- */
+var S=null;
+try{S=JSON.parse(document.getElementById('state').textContent);}catch(e){S=null;}
+var fresh=!S;
+if(!S)S=seed();
+
+var ui={search:'',release:'all',drawer:null,pendingDelete:null,exportKind:'csv'};
+var art=null,mode='pending',readOnly=false,saveTimer=null,saveState='saved',dirty=false;
+var app=document.getElementById('app');
+
+try{
+  var saved=sessionStorage.getItem('or-ui');
+  if(saved){sessionStorage.removeItem('or-ui');var u=JSON.parse(saved);ui.search=u.search||'';ui.release=u.release||'all';ui.drawer=u.drawer||null;ui.exportKind=u.exportKind||'csv';ui._sx=u.sx||0;ui._sy=u.sy||0;}
+}catch(e){}
+
+function findF(id){for(var i=0;i<S.features.length;i++)if(S.features[i].id===id)return S.features[i];return null;}
+function findC(id){for(var i=0;i<S.categories.length;i++)if(S.categories[i].id===id)return S.categories[i];return null;}
+function cellOf(f,c){return (f.cells&&f.cells[c.id])||{status:'unassessed',checks:{},notes:'',owner:'',due:'',link:''};}
+function ensureCell(f,c){f.cells=f.cells||{};if(!f.cells[c.id])f.cells[c.id]={status:'unassessed',checks:{},notes:'',owner:'',due:'',link:''};return f.cells[c.id];}
+function checksDone(cell,c){var n=0;c.checklist.forEach(function(it){if(cell.checks&&cell.checks[it.id])n++;});return n;}
+
+function stats(f){
+  var r={total:0,ready:0,blocked:0,unassessed:0,na:0};
+  S.categories.forEach(function(c){
+    var s=cellOf(f,c).status;
+    if(s==='na'){r.na++;return;}
+    r.total++;
+    if(s==='ready')r.ready++;
+    if(s==='blocked')r.blocked++;
+    if(s==='unassessed')r.unassessed++;
+  });
+  r.pct=r.total?Math.round(r.ready/r.total*100):100;
+  r.overall=r.blocked?'blocked':(r.ready===r.total?'ready':(r.unassessed===r.total?'unassessed':'progress'));
+  return r;
+}
+function releases(){var m={};S.features.forEach(function(f){if(f.release)m[f.release]=1;});return Object.keys(m).sort();}
+function visible(){
+  var q=ui.search.trim().toLowerCase();
+  return S.features.filter(function(f){
+    if(ui.release!=='all'&&f.release!==ui.release)return false;
+    if(!q)return true;
+    return [f.name,f.owner,f.description,f.release].join(' ').toLowerCase().indexOf(q)>=0;
+  });
+}
+function daysUntil(d){if(!d)return null;var t=new Date(d+'T00:00:00');if(isNaN(t))return null;var n=new Date();n.setHours(0,0,0,0);return Math.round((t-n)/86400000);}
+function fmtDate(d){if(!d)return '';var t=new Date(d+'T00:00:00');if(isNaN(t))return d;return t.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});}
+
+/* ---------- saving ---------- */
+function buildDoc(){
+  var css=document.getElementById('css').textContent;
+  var code=document.getElementById('code').textContent;
+  var json=JSON.stringify(S).replace(/</g,'\\u003c');
+  var E='</'+'script>';
+  return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>'+esc(TITLE)+'</title>\n'+FONTS+'\n<style id="css">'+css+'</style>\n</head>\n<body>\n<div id="app"></div>\n<script type="application/json" id="state">'+json+E+'\n<script id="code">'+code+E+'\n</body>\n</html>\n';
+}
+function rememberUI(){
+  try{
+    var gw=document.querySelector('.grid-wrap');
+    sessionStorage.setItem('or-ui',JSON.stringify({search:ui.search,release:ui.release,drawer:ui.drawer,exportKind:ui.exportKind,sx:gw?gw.scrollLeft:0,sy:window.scrollY}));
+  }catch(e){}
+}
+function markDirty(){dirty=true;if(saveState!=='saving'){saveState='dirty';paintSave();}}
+function saveSoon(ms){
+  markDirty();
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(save,ms==null?1500:ms);
+}
+function save(){
+  if(!dirty)return;
+  if(mode==='pending'){saveTimer=setTimeout(save,800);return;}
+  dirty=false;
+  S.updated=new Date().toISOString();
+  if(mode==='live'&&!readOnly){
+    saveState='saving';paintSave();
+    rememberUI();
+    art.publish(buildDoc()).then(function(){saveState='saved';paintSave();}).catch(function(err){
+      var msg=String((err&&(err.code||err.name||err.message))||err);
+      try{sessionStorage.removeItem('or-ui');}catch(e){}
+      if(/not_granted|not_writer/.test(msg)){readOnly=true;saveState='ro';paintSave();renderMain();}
+      else if(/conflict/.test(msg)){saveState='saved';paintSave();}
+      else{dirty=true;saveState='error';paintSave();}
+    });
+  }else{
+    try{localStorage.setItem('or-state',JSON.stringify(S));saveState='local';}catch(e){saveState='nolocal';}
+    paintSave();
+  }
+}
+function paintSave(){
+  var el=document.getElementById('save');if(!el)return;
+  var t={saved:'All changes saved',dirty:'Unsaved changes',saving:'Saving…',local:'Saved in this browser only',nolocal:'Changes are not being saved here',ro:'View only',error:'Could not save. Your next change will retry.'}[saveState]||'';
+  if(saveState==='saved'&&S.updated){t='Saved '+new Date(S.updated).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}
+  el.textContent=t;
+  el.className='save'+(saveState==='dirty'||saveState==='error'?' dirty':'');
+}
+
+/* ---------- rendering ---------- */
+function renderShell(){
+  app.innerHTML=
+    '<header class="top"><div class="brand"><h1>'+esc(TITLE)+'</h1><span id="save" class="save" aria-live="polite"></span></div>'+
+    '<div class="tools">'+
+      '<label class="search"><span class="sr">Search features</span><input id="q" type="search" placeholder="Search features or owners" value="'+esc(ui.search)+'"></label>'+
+      '<label class="sel" for="rel">Release <select id="rel"></select></label>'+
+      '<button class="btn" data-act="cats">Edit categories</button>'+
+      '<button class="btn" data-act="export">Export</button>'+
+      '<button class="btn primary" data-act="add-feature">Add feature</button>'+
+    '</div></header><main id="main"></main><div id="drawer-root"></div>';
+  paintSave();
+}
+function renderReleases(){
+  var sel=document.getElementById('rel');if(!sel)return;
+  var rs=releases();
+  if(ui.release!=='all'&&rs.indexOf(ui.release)<0)ui.release='all';
+  sel.innerHTML='<option value="all">All releases</option>'+rs.map(function(r){return '<option value="'+esc(r)+'"'+(r===ui.release?' selected':'')+'>'+esc(r)+'</option>';}).join('');
+}
+function legend(){
+  return '<ul class="legend" aria-label="Status key">'+STATUSES.map(function(s){return '<li class="s-'+s.id+'">'+esc(s.label)+'</li>';}).join('')+'</ul>';
+}
+function summary(feats){
+  var ready=0,blockedItems=0,unassessed=0,tot=0,rd=0,anyBlocked=false,allReady=feats.length>0,allUn=true;
+  feats.forEach(function(f){var s=stats(f);if(s.overall==='ready')ready++;else allReady=false;if(s.overall!=='unassessed')allUn=false;if(s.blocked)anyBlocked=true;blockedItems+=s.blocked;unassessed+=s.unassessed;tot+=s.total;rd+=s.ready;});
+  var pct=tot?Math.round(rd/tot*100):0;
+  var v=!feats.length?'unassessed':anyBlocked?'blocked':allReady?'ready':allUn?'unassessed':'progress';
+  var scope=ui.release==='all'?'All releases':'Release '+ui.release;
+  var line=!feats.length?'No features yet':(v==='ready'?'Every feature is ready to ship':ready+' of '+feats.length+' feature'+(feats.length===1?'':'s')+' ready to ship');
+  return '<section class="summary" aria-label="Readiness summary">'+
+    '<div class="verdict v-'+v+'"><strong>'+esc(scope)+(v==='blocked'?': blocked':v==='ready'?': go':'')+'</strong><span>'+esc(line)+'</span></div>'+
+    '<dl class="stats"><div><dt>Overall readiness</dt><dd>'+pct+'%</dd></div><div><dt>Blocked items</dt><dd class="'+(blockedItems?'bad':'')+'">'+blockedItems+'</dd></div><div><dt>Not assessed</dt><dd>'+unassessed+'</dd></div></dl>'+
+    legend()+'</section>';
+}
+function colPct(c,feats){
+  var t=0,r=0;feats.forEach(function(f){var s=cellOf(f,c).status;if(s==='na')return;t++;if(s==='ready')r++;});
+  return t?Math.round(r/t*100)+'% ready':'Not applicable';
+}
+function matrix(feats){
+  if(!S.features.length)return '<div class="grid-wrap"><div class="empty"><p>No features yet. Add the first feature going into a release and assess it category by category.</p><button class="btn primary" data-act="add-feature">Add feature</button></div></div>';
+  if(!feats.length)return '<div class="grid-wrap"><div class="empty"><p>No features match this search or release.</p><button class="btn" data-act="clear-filters">Show all features</button></div></div>';
+  var head='<thead><tr><th class="feat-h" scope="col">Feature</th>'+S.categories.map(function(c){
+    return '<th class="cat-h" scope="col"><button data-act="cats" title="'+esc(c.question)+'"><span class="n">'+esc(c.name)+'</span><span class="p">'+colPct(c,feats)+'</span></button></th>';
+  }).join('')+'</tr></thead>';
+  var body='<tbody>'+feats.map(function(f){
+    var s=stats(f),d=daysUntil(f.targetDate),due='';
+    if(f.targetDate){
+      var cls='',extra='';
+      if(s.overall!=='ready'&&d!=null){if(d<0){cls='late';extra=' ('+(-d)+'d overdue)';}else if(d<=21){cls='soon';extra=' (in '+d+'d)';}}
+      due='<span class="'+cls+'">'+esc(fmtDate(f.targetDate))+extra+'</span>';
+    }
+    var meta=[f.release?'<span>'+esc(f.release)+'</span>':'',f.owner?'<span>'+esc(f.owner)+'</span>':'',due].filter(Boolean).join('');
+    var row='<tr><th class="feat" scope="row"><button class="fname" data-act="feature" data-f="'+f.id+'">'+esc(f.name||'Untitled feature')+'</button>'+
+      (meta?'<div class="meta">'+meta+'</div>':'')+
+      '<div class="row2"><div class="bar" role="img" aria-label="'+s.pct+'% ready"><i style="width:'+s.pct+'%"></i></div><span class="pct">'+s.pct+'%</span><span class="chip s-'+s.overall+'">'+OVERALL[s.overall]+'</span></div></th>';
+    row+=S.categories.map(function(c){
+      var cell=cellOf(f,c),n=c.checklist.length,dn=checksDone(cell,c);
+      var sub=[];
+      if(n&&cell.status!=='na'&&cell.status!=='unassessed')sub.push(dn+'/'+n);
+      if(cell.notes)sub.push('notes');
+      return '<td><button class="cell s-'+cell.status+'" data-act="cell" data-f="'+f.id+'" data-c="'+c.id+'" aria-label="'+esc(f.name+', '+c.name+': '+ST[cell.status].label)+'"><span>'+(cell.status==='na'?'N/A':esc(ST[cell.status].label))+'</span>'+(sub.length?'<span class="sub">'+esc(sub.join(' · '))+'</span>':'')+'</button></td>';
+    }).join('')+'</tr>';
+    return row;
+  }).join('')+'</tbody>';
+  return '<div class="grid-wrap"><table class="grid">'+head+body+'</table></div>';
+}
+function renderMain(){
+  var main=document.getElementById('main');if(!main)return;
+  var gw=document.querySelector('.grid-wrap'),sx=gw?gw.scrollLeft:0;
+  var feats=visible();
+  var html='';
+  if(readOnly)html+='<div class="banner ro">You can look through this tracker, but your changes will not be saved. Ask the owner for edit access.</div>';
+  if(S.features.some(function(f){return f.example;}))html+='<div class="banner"><span>The four features below are examples so you can see how a release looks. Replace them with your own when you are ready.</span><button class="btn small" data-act="clear-examples">Remove examples</button></div>';
+  html+=summary(feats)+matrix(feats);
+  main.innerHTML=html;
+  gw=document.querySelector('.grid-wrap');if(gw)gw.scrollLeft=sx;
+}
+
+/* ---------- drawer ---------- */
+function openDrawer(d){ui.drawer=d;ui.pendingDelete=null;renderDrawer();}
+function closeDrawer(){ui.drawer=null;ui.pendingDelete=null;renderDrawer();if(dirty)saveSoon(300);}
+function renderDrawer(){
+  var root=document.getElementById('drawer-root');if(!root)return;
+  var d=ui.drawer;
+  if(!d){root.innerHTML='';return;}
+  var inner='';
+  if(d.type==='cell'){var f=findF(d.f),c=findC(d.c);if(!f||!c){ui.drawer=null;root.innerHTML='';return;}inner=drawerCell(f,c);}
+  else if(d.type==='feature'){var f2=findF(d.f);if(!f2){ui.drawer=null;root.innerHTML='';return;}inner=drawerFeature(f2);}
+  else if(d.type==='cats')inner=drawerCats();
+  else if(d.type==='export')inner=drawerExport();
+  root.innerHTML='<div class="scrim" data-act="close"></div><aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="d-title">'+inner+'</aside>';
+}
+function head(eyebrow,title,q){
+  return '<div class="d-head"><div>'+(eyebrow?'<p class="eyebrow">'+esc(eyebrow)+'</p>':'')+'<h2 id="d-title">'+esc(title)+'</h2>'+(q?'<p class="q">'+esc(q)+'</p>':'')+'</div><button class="x" data-act="close" aria-label="Close">&times;</button></div>';
+}
+function drawerCell(f,c){
+  var cell=cellOf(f,c),idx=S.categories.indexOf(c),n=c.checklist.length,dn=checksDone(cell,c);
+  var seg='<fieldset><legend>Status</legend><div class="seg">'+STATUSES.map(function(s){
+    return '<button type="button" class="segbtn s-'+s.id+'" data-act="set-status" data-s="'+s.id+'" aria-pressed="'+(cell.status===s.id)+'">'+esc(s.label)+'</button>';
+  }).join('')+'</div></fieldset>';
+  var checks=n?'<fieldset class="checks"><legend>Checklist <span class="count">'+dn+'/'+n+'</span></legend>'+c.checklist.map(function(it){
+    var id='ck-'+it.id;
+    return '<label class="check" for="'+id+'"><input type="checkbox" id="'+id+'" data-check="'+it.id+'"'+(cell.checks&&cell.checks[it.id]?' checked':'')+'><span>'+esc(it.text)+'</span></label>';
+  }).join('')+'</fieldset>':'';
+  var link=cell.link&&/^https?:\/\//i.test(cell.link)?'<a class="openlink" href="'+esc(cell.link)+'" target="_blank" rel="noopener">Open '+esc(cell.link)+'</a>':'';
+  return head(f.name,c.name,c.question)+
+    '<div class="d-body">'+seg+checks+
+      '<div class="two"><label class="field" for="cf-owner">Owner<input id="cf-owner" data-cf="owner" value="'+esc(cell.owner)+'" placeholder="Who is on it"></label>'+
+      '<label class="field" for="cf-due">Due<input id="cf-due" type="date" data-cf="due" value="'+esc(cell.due)+'"></label></div>'+
+      '<label class="field" for="cf-link">Link to ticket, plan or doc<input id="cf-link" type="url" data-cf="link" value="'+esc(cell.link)+'" placeholder="https://"></label>'+link+
+      '<label class="field" for="cf-notes">Notes<textarea id="cf-notes" data-cf="notes" rows="5" placeholder="Decisions, risks, what is left to do">'+esc(cell.notes)+'</textarea></label>'+
+    '</div>'+
+    '<div class="d-foot"><button class="btn small" data-act="nav" data-d="-1"'+(idx<=0?' disabled':'')+'>&larr; '+(idx>0?esc(S.categories[idx-1].name):'Previous')+'</button><span>'+(idx+1)+' of '+S.categories.length+'</span><button class="btn small" data-act="nav" data-d="1"'+(idx>=S.categories.length-1?' disabled':'')+'>'+(idx<S.categories.length-1?esc(S.categories[idx+1].name):'Next')+' &rarr;</button></div>';
+}
+function drawerFeature(f){
+  var s=stats(f);
+  var lines=S.categories.map(function(c){
+    var cell=cellOf(f,c);
+    return '<button class="catline" data-act="cell" data-f="'+f.id+'" data-c="'+c.id+'"><span>'+esc(c.name)+'</span><span class="chip s-'+cell.status+'">'+esc(ST[cell.status].label)+'</span></button>';
+  }).join('');
+  var del=ui.pendingDelete===f.id?
+    '<span>Delete this feature and its assessments?</span><span style="display:flex;gap:6px"><button class="btn small" data-act="cancel-del">Keep</button><button class="btn small danger" data-act="del-feature" data-f="'+f.id+'">Delete</button></span>':
+    '<span>'+s.ready+' of '+s.total+' applicable categories ready</span><button class="btn small danger" data-act="ask-del" data-f="'+f.id+'">Delete feature</button>';
+  return head('Feature',f.name||'Untitled feature','')+
+    '<div class="d-body">'+
+      '<label class="field" for="ff-name">Name<input id="ff-name" data-ff="name" value="'+esc(f.name)+'"></label>'+
+      '<div class="two"><label class="field" for="ff-owner">Owner<input id="ff-owner" data-ff="owner" value="'+esc(f.owner)+'"></label>'+
+      '<label class="field" for="ff-release">Release<input id="ff-release" data-ff="release" value="'+esc(f.release)+'" placeholder="e.g. 2027.1" list="rel-list"></label></div>'+
+      '<datalist id="rel-list">'+releases().map(function(r){return '<option value="'+esc(r)+'">';}).join('')+'</datalist>'+
+      '<label class="field" for="ff-date">Target release date<input id="ff-date" type="date" data-ff="targetDate" value="'+esc(f.targetDate)+'"></label>'+
+      '<label class="field" for="ff-desc">What it does<textarea id="ff-desc" data-ff="description" rows="3">'+esc(f.description)+'</textarea></label>'+
+      '<div><p class="lab">Readiness by category</p><div class="catlist">'+lines+'</div></div>'+
+    '</div><div class="d-foot">'+del+'</div>';
+}
+function drawerCats(){
+  var cards=S.categories.map(function(c,i){
+    var del=ui.pendingDelete===c.id?
+      '<button class="btn small danger" data-act="del-cat" data-c="'+c.id+'">Remove</button><button class="btn small" data-act="cancel-del">Keep</button>':
+      '<button class="btn small" data-act="ask-del" data-f="'+c.id+'">Remove</button>';
+    return '<div class="catcard">'+
+      '<div class="hrow"><label class="sr" for="cn-'+c.id+'">Category name</label><input id="cn-'+c.id+'" data-catf="name" data-c="'+c.id+'" value="'+esc(c.name)+'">'+
+      '<button class="icon" data-act="cat-move" data-c="'+c.id+'" data-d="-1" aria-label="Move '+esc(c.name)+' left"'+(i===0?' disabled':'')+'>&uarr;</button>'+
+      '<button class="icon" data-act="cat-move" data-c="'+c.id+'" data-d="1" aria-label="Move '+esc(c.name)+' right"'+(i===S.categories.length-1?' disabled':'')+'>&darr;</button>'+del+'</div>'+
+      '<label class="sr" for="cq-'+c.id+'">Question this category answers</label><input id="cq-'+c.id+'" data-catf="question" data-c="'+c.id+'" value="'+esc(c.question)+'" placeholder="The question this category answers">'+
+      '<label class="sr" for="cl-'+c.id+'">Checklist, one item per line</label><textarea id="cl-'+c.id+'" data-catf="checklist" data-c="'+c.id+'" rows="'+Math.max(2,c.checklist.length)+'" placeholder="Checklist, one item per line">'+esc(c.checklist.map(function(x){return x.text;}).join('\n'))+'</textarea>'+
+    '</div>';
+  }).join('');
+  return head('Setup','Readiness categories','Each category becomes a column. The checklist appears for every feature; edit one item per line.')+
+    '<div class="d-body">'+cards+'<button class="btn" data-act="add-cat">Add category</button></div>';
+}
+function csvCell(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+function exportText(kind){
+  var feats=visible();
+  if(kind==='json')return JSON.stringify(S,null,2);
+  if(kind==='csv'){
+    var rows=[['Feature','Release','Owner','Target date','Readiness %','Overall'].concat(S.categories.map(function(c){return c.name;})).concat(S.categories.map(function(c){return c.name+' notes';}))];
+    feats.forEach(function(f){var s=stats(f);rows.push([f.name,f.release,f.owner,f.targetDate,s.pct,OVERALL[s.overall]].concat(S.categories.map(function(c){return ST[cellOf(f,c).status].label;})).concat(S.categories.map(function(c){return cellOf(f,c).notes;})));});
+    return rows.map(function(r){return r.map(csvCell).join(',');}).join('\n');
+  }
+  var out=['# Operational readiness: '+(ui.release==='all'?'all releases':'release '+ui.release),''];
+  out.push('| Feature | Release | Owner | Ready | Status |','|---|---|---|---|---|');
+  feats.forEach(function(f){var s=stats(f);out.push('| '+[f.name,f.release||'',f.owner||'',s.pct+'%',OVERALL[s.overall]].map(function(x){return String(x).replace(/\|/g,'\\|');}).join(' | ')+' |');});
+  var issues=[];
+  feats.forEach(function(f){S.categories.forEach(function(c){var cell=cellOf(f,c);if(cell.status==='blocked')issues.push('- **'+f.name+' / '+c.name+'**'+(cell.owner?' ('+cell.owner+')':'')+(cell.notes?': '+cell.notes.replace(/\n+/g,' '):''));});});
+  out.push('','## Blockers','',issues.length?issues.join('\n'):'None.');
+  var open=[];
+  feats.forEach(function(f){var miss=S.categories.filter(function(c){var st=cellOf(f,c).status;return st==='unassessed';}).map(function(c){return c.name;});if(miss.length)open.push('- **'+f.name+'**: '+miss.join(', '));});
+  out.push('','## Not yet assessed','',open.length?open.join('\n'):'None.');
+  return out.join('\n');
+}
+function drawerExport(){
+  var k=ui.exportKind;
+  return head('Export','Copy this release',(ui.release==='all'?'All releases':'Release '+ui.release)+', '+visible().length+' features. Paste the table into a spreadsheet, or the summary into a ticket, chat or wiki.')+
+    '<div class="d-body"><div class="tabs"><button class="btn small" data-act="exp-kind" data-k="csv" aria-pressed="'+(k==='csv')+'">Spreadsheet (CSV)</button><button class="btn small" data-act="exp-kind" data-k="md" aria-pressed="'+(k==='md')+'">Summary (Markdown)</button><button class="btn small" data-act="exp-kind" data-k="json" aria-pressed="'+(k==='json')+'">Backup (JSON)</button></div>'+
+    (k==='json'?'<p class="hint">A backup holds every feature and category, across all releases. Download it to keep a copy or move this tracker to another browser.</p>':'')+
+    '<label class="sr" for="exp-out">Export text</label><textarea id="exp-out" class="out" readonly>'+esc(exportText(k))+'</textarea>'+
+    '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn primary" data-act="copy">Copy to clipboard</button><button class="btn" data-act="download">Download file</button><span id="copy-msg" class="hint" aria-live="polite"></span></div>'+
+    '<div><p class="lab">Restore from a backup</p><label class="field" for="imp-file">Choose a .json backup. This replaces everything in the tracker.<input id="imp-file" type="file" accept=".json,application/json"></label><p id="imp-msg" class="hint" aria-live="polite"></p></div></div>';
+}
+
+/* ---------- actions ---------- */
+function rerender(){renderReleases();renderMain();renderDrawer();}
+function newCatItems(old,text){
+  var byText={};old.forEach(function(it){byText[it.text]=it.id;});
+  return text.split('\n').map(function(t){return t.trim();}).filter(Boolean).map(function(t){var id=byText[t]||uid();delete byText[t];return {id:id,text:t};});
+}
+document.addEventListener('click',function(e){
+  var b=e.target.closest('[data-act]');if(!b||b.disabled)return;
+  var a=b.getAttribute('data-act'),fid=b.getAttribute('data-f'),cid=b.getAttribute('data-c');
+  var d=ui.drawer;
+  switch(a){
+    case 'close':closeDrawer();break;
+    case 'cell':openDrawer({type:'cell',f:fid,c:cid});break;
+    case 'feature':openDrawer({type:'feature',f:fid});break;
+    case 'cats':openDrawer({type:'cats'});break;
+    case 'export':openDrawer({type:'export'});break;
+    case 'clear-filters':ui.search='';ui.release='all';var q=document.getElementById('q');if(q)q.value='';rerender();break;
+    case 'add-feature':{
+      var rel=ui.release!=='all'?ui.release:(releases().slice(-1)[0]||'');
+      var f={id:uid(),name:'New feature',owner:'',release:rel,targetDate:'',description:'',cells:{}};
+      S.features.push(f);ui.search='';var q2=document.getElementById('q');if(q2)q2.value='';
+      openDrawer({type:'feature',f:f.id});renderReleases();renderMain();saveSoon(4000);
+      var n=document.getElementById('ff-name');if(n){n.focus();n.select();}
+      break;}
+    case 'clear-examples':S.features=S.features.filter(function(f){return !f.example;});rerender();saveSoon(300);break;
+    case 'set-status':{
+      if(!d||d.type!=='cell')break;
+      var cell=ensureCell(findF(d.f),findC(d.c));cell.status=b.getAttribute('data-s');
+      renderMain();renderDrawer();saveSoon();break;}
+    case 'nav':{
+      if(!d||d.type!=='cell')break;
+      var i=S.categories.findIndex(function(c){return c.id===d.c;})+Number(b.getAttribute('data-d'));
+      if(S.categories[i])openDrawer({type:'cell',f:d.f,c:S.categories[i].id});
+      break;}
+    case 'ask-del':ui.pendingDelete=fid;renderDrawer();break;
+    case 'cancel-del':ui.pendingDelete=null;renderDrawer();break;
+    case 'del-feature':S.features=S.features.filter(function(f){return f.id!==fid;});ui.drawer=null;rerender();saveSoon(300);break;
+    case 'del-cat':S.categories=S.categories.filter(function(c){return c.id!==cid;});S.features.forEach(function(f){if(f.cells)delete f.cells[cid];});ui.pendingDelete=null;rerender();saveSoon();break;
+    case 'cat-move':{
+      var j=S.categories.findIndex(function(c){return c.id===cid;}),k=j+Number(b.getAttribute('data-d'));
+      if(k<0||k>=S.categories.length)break;
+      var t=S.categories[j];S.categories[j]=S.categories[k];S.categories[k]=t;rerender();saveSoon();break;}
+    case 'add-cat':{
+      var c=mkCat('New category','What question should this answer?',[]);S.categories.push(c);rerender();saveSoon(4000);
+      var el=document.getElementById('cn-'+c.id);if(el){el.scrollIntoView({block:'center'});el.focus();el.select();}
+      break;}
+    case 'exp-kind':ui.exportKind=b.getAttribute('data-k');renderDrawer();break;
+    case 'copy':{
+      var ta=document.getElementById('exp-out'),msg=document.getElementById('copy-msg');
+      var done=function(){if(msg)msg.textContent='Copied.';};
+      var fail=function(){if(ta){ta.focus();ta.select();}if(msg)msg.textContent='Your browser blocked copying. The text is selected: press Ctrl+C or Cmd+C.';};
+      try{navigator.clipboard.writeText(ta.value).then(done,fail);}catch(err){fail();}
+      break;}
+    case 'download':{
+      var kind=ui.exportKind,ext={csv:'csv',md:'md',json:'json'}[kind],mime={csv:'text/csv',md:'text/markdown',json:'application/json'}[kind];
+      var stamp=new Date().toISOString().slice(0,10);
+      try{
+        var url=URL.createObjectURL(new Blob([exportText(kind)],{type:mime+';charset=utf-8'}));
+        var a2=document.createElement('a');a2.href=url;a2.download='operational-readiness-'+stamp+'.'+ext;document.body.appendChild(a2);a2.click();a2.remove();
+        setTimeout(function(){URL.revokeObjectURL(url);},2000);
+      }catch(err){var m2=document.getElementById('copy-msg');if(m2)m2.textContent='Downloading is blocked here. Use Copy to clipboard instead.';}
+      break;}
+  }
+});
+document.addEventListener('input',function(e){
+  var t=e.target,d=ui.drawer;
+  if(t.id==='q'){ui.search=t.value;renderMain();return;}
+  if(t.hasAttribute('data-cf')&&d&&d.type==='cell'){
+    var f=findF(d.f),c=findC(d.c);if(!f||!c)return;
+    ensureCell(f,c)[t.getAttribute('data-cf')]=t.value;markDirty();
+    if(t.getAttribute('data-cf')==='notes')renderMain();
+    return;
+  }
+  if(t.hasAttribute('data-ff')&&d&&d.type==='feature'){
+    var f2=findF(d.f);if(!f2)return;f2[t.getAttribute('data-ff')]=t.value;markDirty();renderMain();
+    if(t.getAttribute('data-ff')==='name'){var h=document.getElementById('d-title');if(h)h.textContent=t.value||'Untitled feature';}
+    return;
+  }
+  if(t.hasAttribute('data-catf')){
+    var c2=findC(t.getAttribute('data-c'));if(!c2)return;var k=t.getAttribute('data-catf');
+    if(k==='checklist')c2.checklist=newCatItems(c2.checklist,t.value);else c2[k]=t.value;
+    markDirty();renderMain();return;
+  }
+});
+document.addEventListener('change',function(e){
+  var t=e.target,d=ui.drawer;
+  if(t.id==='rel'){ui.release=t.value;renderMain();return;}
+  if(t.id==='imp-file'&&t.files&&t.files[0]){
+    var rd=new FileReader();
+    rd.onload=function(){
+      var msg=document.getElementById('imp-msg');
+      try{
+        var data=JSON.parse(rd.result);
+        if(!data||!Array.isArray(data.categories)||!Array.isArray(data.features))throw new Error('shape');
+        S=data;ui.release='all';ui.drawer=null;rerender();saveSoon(300);
+      }catch(err){if(msg)msg.textContent='That file is not a backup from this tracker. Choose a .json file made with Backup (JSON).';}
+    };
+    rd.readAsText(t.files[0]);
+    return;
+  }
+  if(t.hasAttribute('data-check')&&d&&d.type==='cell'){
+    var f=findF(d.f),c=findC(d.c);if(!f||!c)return;
+    var cell=ensureCell(f,c);cell.checks=cell.checks||{};
+    if(t.checked)cell.checks[t.getAttribute('data-check')]=true;else delete cell.checks[t.getAttribute('data-check')];
+    if(t.checked&&(cell.status==='unassessed'||cell.status==='todo'))cell.status='progress';
+    renderMain();renderDrawer();
+    var again=document.getElementById(t.id);if(again)again.focus();
+    saveSoon();return;
+  }
+  if(t.hasAttribute('data-cf')||t.hasAttribute('data-ff')||t.hasAttribute('data-catf')){
+    if(t.hasAttribute('data-ff')&&t.getAttribute('data-ff')==='release')renderReleases();
+    if(t.getAttribute('data-cf')==='link')renderDrawer();
+    saveSoon();
+  }
+});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&ui.drawer)closeDrawer();});
+
+/* ---------- start ---------- */
+renderShell();
+renderReleases();
+renderMain();
+renderDrawer();
+if(ui._sx||ui._sy){var gw0=document.querySelector('.grid-wrap');if(gw0)gw0.scrollLeft=ui._sx;window.scrollTo(0,ui._sy);}
+
+var useP=null;
+try{useP=(window.claude&&typeof window.claude.use==='function')?window.claude.use('artifact'):null;}catch(e){useP=null;}
+Promise.resolve(useP).then(function(a){
+  art=a||null;mode=art?'live':'local';
+  if(!art){
+    if(fresh){try{var ls=localStorage.getItem('or-state');if(ls){S=JSON.parse(ls);rerender();}}catch(e){}}
+    saveState=S.updated||!fresh?'local':'saved';
+    if(fresh&&!S.updated)saveState='local';
+  }
+  paintSave();
+},function(){mode='local';paintSave();});
+})();
+</script>
+</body>
+</html>
