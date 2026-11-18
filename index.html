@@ -227,6 +227,11 @@ body{background:radial-gradient(1400px 460px at 12% -160px,color-mix(in srgb,var
 .top .search input::placeholder{color:var(--hdr-muted)}
 .top .sel{color:var(--hdr-muted)}
 .top .sel select option{color:#14212b;background:#fff}
+.top{gap:10px 16px}
+.top .tools{gap:6px}
+.top .search input{width:180px}
+.top .btn{padding:0 12px}
+@media (max-width:640px){.top .search input{width:100%}}
 .btn{border-radius:8px;transition:background-color .15s,border-color .15s,color .15s,box-shadow .15s}
 .btn.primary{box-shadow:0 6px 14px -8px color-mix(in srgb,var(--accent) 80%,transparent)}
 .banner{border-radius:10px;box-shadow:0 1px 2px rgba(16,24,32,.04)}
@@ -330,6 +335,15 @@ body{background:radial-gradient(1400px 460px at 12% -160px,color-mix(in srgb,var
   .rep .callout textarea{display:none}
 }
 .foot{padding:0 20px 28px;color:var(--muted);font-size:12.5px}
+.banner.cta{border-left-color:var(--accent);background:linear-gradient(100deg,color-mix(in srgb,var(--accent) 12%,var(--surface)),var(--surface) 70%);padding:14px 18px;justify-content:space-between}
+.cta-text{display:flex;flex-direction:column;gap:2px;flex:1 1 380px}
+.cta-text strong{font-size:14.5px}
+.cta-text span{color:var(--muted)}
+.cta-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.banner.cta .hint{flex-basis:100%;margin:0}
+.banner.cta .hint:empty{display:none}
+.top .btn.accent{border-color:#52b9d8;color:#bfe9f5}
+.created{margin:0;padding:10px 12px;border-radius:8px;background:color-mix(in srgb,var(--ok) 12%,var(--surface));color:var(--ink);border:1px solid color-mix(in srgb,var(--ok) 35%,var(--line))}
 .foot a{color:var(--accent);text-underline-offset:2px}
 .linkrow{display:flex;gap:8px}
 .linkrow input{flex:1;min-width:0;border:1px solid var(--line);background:var(--surface-2);border-radius:6px;padding:8px 10px;font:12.5px var(--font-mono)}
@@ -533,12 +547,14 @@ function save(){
     paintSave();
   }
 }
+function paintShareBtn(){var sb=document.getElementById('share-btn');if(sb){sb.textContent=mode==='cloud'?'Share link':'Create board';sb.classList.toggle('accent',mode!=='cloud');}}
 function paintSave(){
   var el=document.getElementById('save');if(!el)return;
   var t={saved:'All changes saved',dirty:'Unsaved changes',saving:'Saving…',local:'Saved in this browser only',nolocal:'Changes are not being saved here',ro:'View only',error:'Could not save. Retrying shortly.',loading:'Loading shared board…',newboard:'New shared board. Your first change creates it.'}[saveState]||'';
   if(saveState==='cloud'){t='Saved to shared board'+(S.updated?' '+new Date(S.updated).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'');}
   if(saveState==='saved'&&S.updated){t='Saved '+new Date(S.updated).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}
   el.textContent=t;
+  paintShareBtn();
   el.className='save'+(saveState==='dirty'||saveState==='error'?' dirty':'');
 }
 
@@ -552,7 +568,7 @@ function renderShell(){
       '<button class="btn" data-act="cats">Edit categories</button>'+
       '<button class="btn" data-act="report">Status report</button>'+
       '<button class="btn" data-act="export">Export</button>'+
-      (cloudOn()?'<button class="btn" data-act="share">Share</button>':'')+
+      (cloudOn()?'<button class="btn" id="share-btn" data-act="share">Create board</button>':'')+
       '<button class="btn primary" data-act="add-feature">Add feature</button>'+
     '</div></header><main id="main"></main>'+
     '<footer class="foot">Operational Readiness is an open-source release readiness tracker. <a href="https://github.com/jessicasaini95/operational-readiness-app">Source on GitHub</a></footer>'+
@@ -634,7 +650,13 @@ function renderMain(){
   var feats=visible();
   var html='';
   if(readOnly)html+='<div class="banner ro">You can look through this tracker, but your changes will not be saved. Ask the owner for edit access.</div>';
-  if(S.features.some(function(f){return f.example;}))html+='<div class="banner"><span>The four features below are examples so you can see how a release looks. Replace them with your own when you are ready.</span><button class="btn small" data-act="clear-examples">Remove examples</button></div>';
+  var hasEx=S.features.some(function(f){return f.example;});
+  if(cloudOn()&&mode!=='cloud'&&!readOnly){
+    html+='<div class="banner cta"><div class="cta-text"><strong>'+(hasEx?'You are looking at example data, saved only in this browser.':'This tracker is saved only in this browser.')+'</strong><span>Create your own board to save your work online, open it on any device, and share it with your team.</span></div>'+
+      '<div class="cta-actions">'+(hasEx?'<button class="btn small" data-act="clear-examples">Remove examples</button>':'')+'<button class="btn primary" data-act="create-board">Create my board</button></div><p id="cta-msg" class="hint" aria-live="polite"></p></div>';
+  }else if(hasEx){
+    html+='<div class="banner"><span>Some features below are examples so you can see how a release looks. Replace them with your own when you are ready.</span><button class="btn small" data-act="clear-examples">Remove examples</button></div>';
+  }
   html+=summary(feats)+matrix(feats);
   main.innerHTML=html;
   gw=document.querySelector('.grid-wrap');if(gw)gw.scrollLeft=sx;
@@ -642,7 +664,7 @@ function renderMain(){
 
 /* ---------- drawer ---------- */
 function openDrawer(d){ui.drawer=d;ui.pendingDelete=null;renderDrawer();}
-function closeDrawer(){ui.drawer=null;ui.pendingDelete=null;ui.newFeature=null;renderDrawer();if(dirty)saveSoon(300);}
+function closeDrawer(){ui.justCreated=false;ui.drawer=null;ui.pendingDelete=null;ui.newFeature=null;renderDrawer();if(dirty)saveSoon(300);}
 function renderDrawer(){
   var root=document.getElementById('drawer-root');if(!root)return;
   var d=ui.drawer;
@@ -749,12 +771,12 @@ function drawerExport(){
 
 function drawerShare(){
   if(mode!=='cloud'){
-    return head('Share','Save this tracker online','Right now this tracker is saved only in this browser. A shared board saves it online, so it is there on any device and your team sees the same thing.')+
-      '<div class="d-body"><p class="note">Creating a board copies everything you see here into it. You then get a link: anyone with the link can view and edit the board, so share it only with your team.</p>'+
-      '<div><button class="btn primary" data-act="create-board">Create shared board</button></div><p id="share-msg" class="hint" aria-live="polite"></p></div>';
+    return head('Your board','Create your own board','Right now this tracker is saved only in this browser. Your own board saves online, so it is there on any device and your team sees the same thing.')+
+      '<div class="d-body"><p class="note">Your board keeps your categories and any features you added. The example features are left out. You then get a link to your board: anyone with the link can view and edit it, so share it only with your team.</p>'+
+      '<div><button class="btn primary" data-act="create-board">Create my board</button></div><p id="share-msg" class="hint" aria-live="polite"></p></div>';
   }
-  return head('Share','Shared board link','Everyone with this link sees the same board, and changes save online for everyone.')+
-    '<div class="d-body"><div class="linkrow"><label class="sr" for="share-link">Board link</label><input id="share-link" readonly value="'+esc(boardLink())+'"><button class="btn primary" data-act="copy-link">Copy link</button></div>'+
+  return head('Your board','Share your board','Everyone with this link sees the same board, and changes save online for everyone.')+
+    '<div class="d-body">'+(ui.justCreated?'<p class="created">Your board is ready and saved online. Bookmark this page or copy the link below: it is the way back to your board.</p>':'')+'<div class="linkrow"><label class="sr" for="share-link">Board link</label><input id="share-link" readonly value="'+esc(boardLink())+'"><button class="btn primary" data-act="copy-link">Copy link</button></div>'+
     '<p id="share-msg" class="hint" aria-live="polite"></p>'+
     '<p class="note">Anyone with this link can edit the board. Changes from other people appear here within about 15 seconds. Bookmark the link: it is the only way back to this board.</p></div>';
 }
@@ -924,13 +946,16 @@ document.addEventListener('click',function(e){
       break;
     case 'create-board':{
       b.disabled=true;
-      var id=newBoardId(),m3=document.getElementById('share-msg');
-      S.updated=new Date().toISOString();
-      rpc('save_board',{p_id:id,p_data:S}).then(function(ts){
-        BOARD=id;mode='cloud';lastRemote=ts;dirty=false;saveState='cloud';
+      var id=newBoardId(),m3=document.getElementById('share-msg')||document.getElementById('cta-msg');
+      var mine=JSON.parse(JSON.stringify(S));
+      mine.features=mine.features.filter(function(f){return !f.example;});
+      mine.updated=new Date().toISOString();
+      rpc('save_board',{p_id:id,p_data:mine}).then(function(ts){
+        S=mine;BOARD=id;mode='cloud';lastRemote=ts;dirty=false;saveState='cloud';
         try{history.replaceState(null,'','?board='+encodeURIComponent(id));}catch(e){}
         setInterval(pull,15000);
-        paintSave();renderDrawer();
+        ui.drawer={type:'share'};ui.justCreated=true;
+        paintSave();paintShareBtn();rerender();
       }).catch(function(err){
         b.disabled=false;
         var detail=String((err&&err.message)||err||'').slice(0,300);
@@ -1030,7 +1055,7 @@ renderDrawer();
 if(ui._sx||ui._sy){var gw0=document.querySelector('.grid-wrap');if(gw0)gw0.scrollLeft=ui._sx;window.scrollTo(0,ui._sy);}
 
 if(cloudOn()&&BOARD){
-  mode='cloud';saveState='loading';paintSave();
+  mode='cloud';saveState='loading';paintSave();renderMain();
   rpc('get_board',{p_id:BOARD}).then(function(rows){
     var row=rows&&rows[0];
     if(row&&row.data&&Array.isArray(row.data.features)){S=row.data;lastRemote=row.updated_at;saveState='cloud';rerender();}
