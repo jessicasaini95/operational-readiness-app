@@ -175,6 +175,50 @@ legend,.lab{font:600 12px var(--font-cond);color:var(--muted);text-transform:upp
 .tabs .btn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
 .out{width:100%;min-height:320px;font:12px/1.5 var(--font-mono);border:1px solid var(--line);border-radius:6px;background:var(--surface-2);padding:10px;resize:vertical}
 .openlink{font-size:13px;color:var(--accent);word-break:break-all}
+/* status report */
+.rep-overlay{position:fixed;inset:0;z-index:45;background:var(--bg);overflow-y:auto}
+.rep-bar{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom:1px solid var(--line);padding:10px 20px;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between}
+.rep-bar .l{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.rep-bar .r{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.rep{max-width:860px;margin:24px auto 48px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:36px 44px;display:flex;flex-direction:column;gap:26px}
+.rep header{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start;border-bottom:1px solid var(--line);padding-bottom:20px}
+.rep h2{font:600 26px/1.2 var(--font-body);letter-spacing:-.01em}
+.rep .asof{font:500 12.5px var(--font-mono);color:var(--muted);margin-top:4px}
+.rep .vpill{font:600 14px var(--font-cond);padding:6px 12px;border-radius:999px;border:1px solid transparent;white-space:nowrap}
+.rep h3{font:600 12px var(--font-cond);color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin:0 0 10px}
+.rep .lede{font-size:16px;line-height:1.55;margin:0;max-width:68ch}
+.rep .nums{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.rep .nums div{border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.rep .nums b{font:500 24px/1.1 var(--font-mono);font-variant-numeric:tabular-nums}
+.rep .nums span{font-size:12.5px;color:var(--muted)}
+.rep .nums .bad b{color:var(--bad)}
+.rep table{width:100%;border-collapse:collapse;font-size:13.5px}
+.rep th{text-align:left;font:600 12px var(--font-cond);color:var(--muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--line);padding:6px 8px}
+.rep td{border-bottom:1px solid var(--line);padding:9px 8px;vertical-align:top}
+.rep td.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rep .mini{display:inline-block;width:70px;height:6px;border-radius:3px;background:var(--surface-2);border:1px solid var(--line);vertical-align:middle;margin-right:8px;overflow:hidden}
+.rep .mini i{display:block;height:100%;background:var(--ok)}
+.rep ul.items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.rep ul.items li{border-left:3px solid var(--line);padding:2px 0 2px 12px;line-height:1.5}
+.rep ul.items li.bad{border-color:var(--bad)} .rep ul.items li.warn{border-color:var(--warn)}
+.rep ul.items .who{color:var(--muted);font-size:12.5px}
+.rep .none{color:var(--muted);margin:0}
+.rep textarea{width:100%;min-height:80px;border:1px solid var(--line);background:var(--surface-2);border-radius:6px;padding:10px 12px;font:inherit;font-size:14.5px;line-height:1.5;resize:vertical}
+.rep .notes-print{display:none;white-space:pre-wrap;line-height:1.55;margin:0}
+.rep .tablewrap{overflow-x:auto}
+@media (max-width:640px){.rep{padding:22px 18px;margin:12px}.rep .nums{grid-template-columns:repeat(2,1fr)}}
+@page{margin:16mm 14mm}
+@media print{
+  :root{--bg:#fff;--surface:#fff;--surface-2:#f4f6f7;--ink:#111a21;--muted:#55636f;--line:#d6dde2;--ok:#17703f;--warn:#8f5c06;--bad:#a92c24;color-scheme:light}
+  body{background:#fff}
+  .top,#main,.foot,.rep-bar{display:none!important}
+  .rep-overlay{position:static;overflow:visible;background:#fff}
+  .rep{border:0;margin:0;padding:0;max-width:none}
+  .rep textarea{display:none}
+  .rep .notes-print{display:block}
+  .rep .notes-empty{display:none}
+  .rep table,.rep li{break-inside:avoid}
+}
 .foot{padding:0 20px 28px;color:var(--muted);font-size:12.5px}
 .foot a{color:var(--accent);text-underline-offset:2px}
 .linkrow{display:flex;gap:8px}
@@ -396,6 +440,7 @@ function renderShell(){
       '<label class="search"><span class="sr">Search features</span><input id="q" type="search" placeholder="Search features or owners" value="'+esc(ui.search)+'"></label>'+
       '<label class="sel" for="rel">Release <select id="rel"></select></label>'+
       '<button class="btn" data-act="cats">Edit categories</button>'+
+      '<button class="btn" data-act="report">Status report</button>'+
       '<button class="btn" data-act="export">Export</button>'+
       (cloudOn()?'<button class="btn" data-act="share">Share</button>':'')+
       '<button class="btn primary" data-act="add-feature">Add feature</button>'+
@@ -476,6 +521,7 @@ function renderDrawer(){
   var root=document.getElementById('drawer-root');if(!root)return;
   var d=ui.drawer;
   if(!d){root.innerHTML='';return;}
+  if(d.type==='report'){root.innerHTML=renderReport();return;}
   var inner='';
   if(d.type==='cell'){var f=findF(d.f),c=findC(d.c);if(!f||!c){ui.drawer=null;root.innerHTML='';return;}inner=drawerCell(f,c);}
   else if(d.type==='feature'){var f2=findF(d.f);if(!f2){ui.drawer=null;root.innerHTML='';return;}inner=drawerFeature(f2);}
@@ -587,6 +633,94 @@ function drawerShare(){
     '<p class="note">Anyone with this link can edit the board. Changes from other people appear here within about 15 seconds. Bookmark the link: it is the only way back to this board.</p></div>';
 }
 
+/* ---------- status report ---------- */
+function plural(n,w){return n+' '+w+(n===1?'':'s');}
+function reportModel(){
+  var feats=visible();
+  var scope=ui.release==='all'?'all releases':ui.release;
+  var rows=feats.map(function(f){return {f:f,s:stats(f)};});
+  var ready=rows.filter(function(r){return r.s.overall==='ready';}).length;
+  var tot=0,rd=0,un=0;rows.forEach(function(r){tot+=r.s.total;rd+=r.s.ready;un+=r.s.unassessed;});
+  var pct=tot?Math.round(rd/tot*100):0;
+  var blockers=[];
+  feats.forEach(function(f){S.categories.forEach(function(c){var cell=cellOf(f,c);if(cell.status==='blocked')blockers.push({f:f,c:c,cell:cell});});});
+  var blockedFeats={};blockers.forEach(function(x){blockedFeats[x.f.id]=1;});
+  var nBlockedFeats=Object.keys(blockedFeats).length;
+  var verdict=!feats.length?'unassessed':blockers.length?'blocked':ready===feats.length?'ready':'progress';
+  var label={ready:'On track',blocked:'At risk',progress:'In progress',unassessed:'Not assessed'}[verdict];
+  var soon=rows.filter(function(r){var d=daysUntil(r.f.targetDate);return r.s.overall!=='ready'&&d!=null&&d<=21;})
+    .sort(function(a,b){return daysUntil(a.f.targetDate)-daysUntil(b.f.targetDate);});
+  var next=null;rows.forEach(function(r){var d=daysUntil(r.f.targetDate);if(r.s.overall!=='ready'&&d!=null&&d>=0&&(!next||d<daysUntil(next.targetDate)))next=r.f;});
+  var cats=S.categories.map(function(c){var t=0,r=0,b=0;feats.forEach(function(f){var st=cellOf(f,c).status;if(st==='na')return;t++;if(st==='ready')r++;if(st==='blocked')b++;});return {c:c,t:t,r:r,b:b,p:t?Math.round(r/t*100):100};})
+    .filter(function(x){return x.t&&x.p<100;}).sort(function(a,b){return a.p-b.p||b.b-a.b;}).slice(0,4);
+  var s=[];
+  if(!feats.length)s.push('There are no features in this view yet.');
+  else{
+    s.push((ready===feats.length?'All '+plural(feats.length,'feature')+' are':ready+' of '+plural(feats.length,'feature')+(ready===1?' is':' are'))+' ready to ship, and overall readiness is '+pct+'%.');
+    if(blockers.length)s.push(plural(blockers.length,'item')+(blockers.length===1?' is':' are')+' blocked across '+plural(nBlockedFeats,'feature')+'.');
+    else s.push('Nothing is blocked.');
+    if(next){var dn=daysUntil(next.targetDate);s.push('The next target date is '+fmtDate(next.targetDate)+' ('+(dn===0?'today':'in '+plural(dn,'day'))+') for '+next.name+'.');}
+    if(un)s.push(plural(un,'category assessment')+' '+(un===1?'has':'have')+' not been done yet.');
+  }
+  var key=ui.release==='all'?'__all':ui.release;
+  return {feats:feats,rows:rows,scope:scope,ready:ready,pct:pct,blockers:blockers,nBlockedFeats:nBlockedFeats,unassessed:un,verdict:verdict,label:label,soon:soon,cats:cats,summary:s.join(' '),notesKey:key,notes:(S.reportNotes&&S.reportNotes[key])||'',asof:new Date().toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'})};
+}
+function dueText(f){var d=daysUntil(f.targetDate);if(d==null)return '';return d<0?plural(-d,'day')+' overdue':d===0?'due today':'due in '+plural(d,'day');}
+function renderReport(){
+  var m=reportModel();
+  var rs=releases();
+  var sel='<label class="sel" for="rep-rel">Release <select id="rep-rel"><option value="all">All releases</option>'+rs.map(function(r){return '<option value="'+esc(r)+'"'+(r===ui.release?' selected':'')+'>'+esc(r)+'</option>';}).join('')+'</select></label>';
+  var bar='<div class="rep-bar"><div class="l"><button class="btn" data-act="close">&larr; Back to tracker</button>'+sel+'</div>'+
+    '<div class="r"><span id="rep-msg" class="hint" aria-live="polite"></span><button class="btn" data-act="rep-copy" data-k="text">Copy for email</button><button class="btn" data-act="rep-copy" data-k="md">Copy as Markdown</button><button class="btn primary" data-act="rep-print">Print or save PDF</button></div></div>';
+  var nums='<div class="nums"><div><b>'+m.pct+'%</b><span>Overall readiness</span></div><div><b>'+m.ready+'/'+m.feats.length+'</b><span>Features ready to ship</span></div><div class="'+(m.blockers.length?'bad':'')+'"><b>'+m.blockers.length+'</b><span>Blocked items</span></div><div><b>'+m.unassessed+'</b><span>Not yet assessed</span></div></div>';
+  var table=m.rows.length?'<div class="tablewrap"><table><thead><tr><th>Feature</th><th>Owner</th><th>Target</th><th>Readiness</th><th>Status</th></tr></thead><tbody>'+m.rows.map(function(r){
+    return '<tr><td><strong>'+esc(r.f.name)+'</strong>'+(r.f.release&&ui.release==='all'?'<div class="who">'+esc(r.f.release)+'</div>':'')+'</td><td>'+esc(r.f.owner||'—')+'</td><td class="num">'+esc(r.f.targetDate?fmtDate(r.f.targetDate):'—')+'</td><td class="num"><span class="mini"><i style="width:'+r.s.pct+'%"></i></span>'+r.s.pct+'%</td><td><span class="chip s-'+r.s.overall+'">'+OVERALL[r.s.overall]+'</span></td></tr>';
+  }).join('')+'</tbody></table></div>':'<p class="none">No features in this view.</p>';
+  var blockers=m.blockers.length?'<ul class="items">'+m.blockers.map(function(x){
+    var who=[x.cell.owner?'Owner: '+x.cell.owner:'',x.cell.due?'Due '+fmtDate(x.cell.due):''].filter(Boolean).join(' · ');
+    return '<li class="bad"><strong>'+esc(x.f.name)+'</strong>: '+esc(x.c.name)+(x.cell.notes?'<div>'+esc(x.cell.notes)+'</div>':'')+(who?'<div class="who">'+esc(who)+'</div>':'')+'</li>';
+  }).join('')+'</ul>':'<p class="none">Nothing is blocked.</p>';
+  var soon=m.soon.length?'<ul class="items">'+m.soon.map(function(r){
+    var open=S.categories.filter(function(c){var st=cellOf(r.f,c).status;return st!=='ready'&&st!=='na';}).map(function(c){return c.name;});
+    return '<li class="warn"><strong>'+esc(r.f.name)+'</strong>, '+esc(fmtDate(r.f.targetDate))+' ('+esc(dueText(r.f))+'): '+r.s.pct+'% ready'+(open.length?'<div class="who">Still open: '+esc(open.join(', '))+'</div>':'')+'</li>';
+  }).join('')+'</ul>':'<p class="none">No unfinished features are due in the next three weeks.</p>';
+  var cats=m.cats.length?'<ul class="items">'+m.cats.map(function(x){return '<li'+(x.b?' class="bad"':'')+'><strong>'+esc(x.c.name)+'</strong>: '+x.p+'% ready across '+plural(x.t,'feature')+(x.b?', '+x.b+' blocked':'')+'</li>';}).join('')+'</ul>':'<p class="none">Every category is ready.</p>';
+  var notes='<section><h3>Notes for leadership</h3><label class="sr" for="rep-notes">Notes for leadership</label><textarea id="rep-notes" placeholder="Optional: decisions you need, context, or what changed since the last update. Saved with this release.">'+esc(m.notes)+'</textarea>'+
+    (m.notes?'<p class="notes-print">'+esc(m.notes)+'</p>':'<p class="notes-print notes-empty"></p>')+'</section>';
+  return '<div class="rep-overlay" role="dialog" aria-modal="true" aria-labelledby="rep-title">'+bar+
+    '<article class="rep"><header><div><h2 id="rep-title">Release readiness: '+esc(m.scope)+'</h2><div class="asof">Status report · '+esc(m.asof)+'</div></div><span class="vpill s-'+m.verdict+'">'+esc(m.label)+'</span></header>'+
+    '<section><h3>Summary</h3><p class="lede">'+esc(m.summary)+'</p></section>'+nums+
+    (m.notes||!readOnly?notes:'')+
+    '<section><h3>Features</h3>'+table+'</section>'+
+    '<section><h3>Blockers</h3>'+blockers+'</section>'+
+    '<section><h3>Due in the next three weeks</h3>'+soon+'</section>'+
+    '<section><h3>Weakest areas</h3>'+cats+'</section>'+
+    '</article></div>';
+}
+function reportText(kind){
+  var m=reportModel(),L=[];
+  var md=kind==='md';
+  L.push(md?'# Release readiness: '+m.scope:'Release readiness: '+m.scope);
+  L.push((md?'**Status:** ':'Status: ')+m.label+' · '+m.asof,'');
+  L.push(md?'## Summary':'SUMMARY',m.summary,'');
+  L.push((md?'- ':'')+'Overall readiness: '+m.pct+'%',(md?'- ':'')+'Features ready to ship: '+m.ready+' of '+m.feats.length,(md?'- ':'')+'Blocked items: '+m.blockers.length,(md?'- ':'')+'Not yet assessed: '+m.unassessed,'');
+  if(m.notes)L.push(md?'## Notes':'NOTES',m.notes,'');
+  L.push(md?'## Features':'FEATURES');
+  if(md){L.push('| Feature | Owner | Target | Readiness | Status |','|---|---|---|---|---|');m.rows.forEach(function(r){L.push('| '+[r.f.name,r.f.owner||'—',r.f.targetDate?fmtDate(r.f.targetDate):'—',r.s.pct+'%',OVERALL[r.s.overall]].map(function(x){return String(x).replace(/\|/g,'\\|');}).join(' | ')+' |');});}
+  else m.rows.forEach(function(r){L.push('- '+r.f.name+(r.f.owner?' ('+r.f.owner+')':'')+': '+r.s.pct+'% ready, '+OVERALL[r.s.overall]+(r.f.targetDate?', target '+fmtDate(r.f.targetDate):''));});
+  if(!m.rows.length)L.push('No features in this view.');
+  L.push('',md?'## Blockers':'BLOCKERS');
+  if(m.blockers.length)m.blockers.forEach(function(x){L.push('- '+(md?'**'+x.f.name+'**':x.f.name)+': '+x.c.name+(x.cell.notes?'. '+x.cell.notes.replace(/\s*\n+\s*/g,' '):'')+(x.cell.owner?' (owner: '+x.cell.owner+')':''));});
+  else L.push('Nothing is blocked.');
+  L.push('',md?'## Due in the next three weeks':'DUE IN THE NEXT THREE WEEKS');
+  if(m.soon.length)m.soon.forEach(function(r){L.push('- '+r.f.name+', '+fmtDate(r.f.targetDate)+' ('+dueText(r.f)+'): '+r.s.pct+'% ready');});
+  else L.push('No unfinished features are due in the next three weeks.');
+  L.push('',md?'## Weakest areas':'WEAKEST AREAS');
+  if(m.cats.length)m.cats.forEach(function(x){L.push('- '+x.c.name+': '+x.p+'% ready across '+plural(x.t,'feature')+(x.b?', '+x.b+' blocked':''));});
+  else L.push('Every category is ready.');
+  return L.join('\n');
+}
+
 /* ---------- actions ---------- */
 function rerender(){renderReleases();renderMain();renderDrawer();}
 function newCatItems(old,text){
@@ -634,6 +768,14 @@ document.addEventListener('click',function(e){
       var el=document.getElementById('cn-'+c.id);if(el){el.scrollIntoView({block:'center'});el.focus();el.select();}
       break;}
     case 'share':openDrawer({type:'share'});break;
+    case 'report':openDrawer({type:'report'});var ro=document.querySelector('.rep-overlay');if(ro)ro.scrollTop=0;break;
+    case 'rep-print':try{window.print();}catch(err){var pm=document.getElementById('rep-msg');if(pm)pm.textContent='Printing is blocked here. Use your browser menu to print.';}break;
+    case 'rep-copy':{
+      var txt=reportText(b.getAttribute('data-k')),rm=document.getElementById('rep-msg');
+      var ok2=function(){if(rm)rm.textContent='Copied. Paste it into an email or chat.';};
+      var no2=function(){if(rm)rm.textContent='Your browser blocked copying. Try Print or save PDF instead.';};
+      try{navigator.clipboard.writeText(txt).then(ok2,no2);}catch(err){no2();}
+      break;}
     case 'add-done':{
       var nf=findF(ui.newFeature);
       if(nf&&!String(nf.name||'').trim())nf.name='Untitled feature';
@@ -685,6 +827,12 @@ document.addEventListener('click',function(e){
 document.addEventListener('input',function(e){
   var t=e.target,d=ui.drawer;
   if(t.id==='q'){ui.search=t.value;renderMain();return;}
+  if(t.id==='rep-notes'){
+    var key=ui.release==='all'?'__all':ui.release;
+    S.reportNotes=S.reportNotes||{};S.reportNotes[key]=t.value;markDirty();
+    var np=document.querySelector('.rep .notes-print');if(np){np.textContent=t.value;np.classList.toggle('notes-empty',!t.value);}
+    return;
+  }
   if(t.hasAttribute('data-cf')&&d&&d.type==='cell'){
     var f=findF(d.f),c=findC(d.c);if(!f||!c)return;
     ensureCell(f,c)[t.getAttribute('data-cf')]=t.value;markDirty();
@@ -705,6 +853,8 @@ document.addEventListener('input',function(e){
 document.addEventListener('change',function(e){
   var t=e.target,d=ui.drawer;
   if(t.id==='rel'){ui.release=t.value;renderMain();return;}
+  if(t.id==='rep-rel'){ui.release=t.value;var rel2=document.getElementById('rel');if(rel2)rel2.value=t.value;renderMain();renderDrawer();return;}
+  if(t.id==='rep-notes'){saveSoon();return;}
   if(t.id==='imp-file'&&t.files&&t.files[0]){
     var rd=new FileReader();
     rd.onload=function(){
