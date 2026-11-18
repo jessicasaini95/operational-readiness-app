@@ -471,7 +471,7 @@ function renderMain(){
 
 /* ---------- drawer ---------- */
 function openDrawer(d){ui.drawer=d;ui.pendingDelete=null;renderDrawer();}
-function closeDrawer(){ui.drawer=null;ui.pendingDelete=null;renderDrawer();if(dirty)saveSoon(300);}
+function closeDrawer(){ui.drawer=null;ui.pendingDelete=null;ui.newFeature=null;renderDrawer();if(dirty)saveSoon(300);}
 function renderDrawer(){
   var root=document.getElementById('drawer-root');if(!root)return;
   var d=ui.drawer;
@@ -512,10 +512,13 @@ function drawerFeature(f){
     var cell=cellOf(f,c);
     return '<button class="catline" data-act="cell" data-f="'+f.id+'" data-c="'+c.id+'"><span>'+esc(c.name)+'</span><span class="chip s-'+cell.status+'">'+esc(ST[cell.status].label)+'</span></button>';
   }).join('');
-  var del=ui.pendingDelete===f.id?
+  var isNew=ui.newFeature===f.id;
+  var del=isNew?
+    '<button class="btn" data-act="cancel-new" data-f="'+f.id+'">Cancel</button><button class="btn primary" data-act="add-done">Add feature</button>':
+    ui.pendingDelete===f.id?
     '<span>Delete this feature and its assessments?</span><span style="display:flex;gap:6px"><button class="btn small" data-act="cancel-del">Keep</button><button class="btn small danger" data-act="del-feature" data-f="'+f.id+'">Delete</button></span>':
-    '<span>'+s.ready+' of '+s.total+' applicable categories ready</span><button class="btn small danger" data-act="ask-del" data-f="'+f.id+'">Delete feature</button>';
-  return head('Feature',f.name||'Untitled feature','')+
+    '<button class="btn small danger" data-act="ask-del" data-f="'+f.id+'">Delete feature</button><span style="display:flex;gap:10px;align-items:center">'+s.ready+' of '+s.total+' ready<button class="btn primary" data-act="close">Done</button></span>';
+  return head(isNew?'New feature':'Feature',f.name||'Untitled feature',isNew?'Fill in the details, then add it. You can assess each category afterwards.':'')+
     '<div class="d-body">'+
       '<label class="field" for="ff-name">Name<input id="ff-name" data-ff="name" value="'+esc(f.name)+'"></label>'+
       '<div class="two"><label class="field" for="ff-owner">Owner<input id="ff-owner" data-ff="owner" value="'+esc(f.owner)+'"></label>'+
@@ -605,7 +608,7 @@ document.addEventListener('click',function(e){
       var rel=ui.release!=='all'?ui.release:(releases().slice(-1)[0]||'');
       var f={id:uid(),name:'New feature',owner:'',release:rel,targetDate:'',description:'',cells:{}};
       S.features.push(f);ui.search='';var q2=document.getElementById('q');if(q2)q2.value='';
-      openDrawer({type:'feature',f:f.id});renderReleases();renderMain();saveSoon(4000);
+      openDrawer({type:'feature',f:f.id});ui.newFeature=f.id;renderDrawer();renderReleases();renderMain();
       var n=document.getElementById('ff-name');if(n){n.focus();n.select();}
       break;}
     case 'clear-examples':S.features=S.features.filter(function(f){return !f.example;});rerender();saveSoon(300);break;
@@ -631,6 +634,15 @@ document.addEventListener('click',function(e){
       var el=document.getElementById('cn-'+c.id);if(el){el.scrollIntoView({block:'center'});el.focus();el.select();}
       break;}
     case 'share':openDrawer({type:'share'});break;
+    case 'add-done':{
+      var nf=findF(ui.newFeature);
+      if(nf&&!String(nf.name||'').trim())nf.name='Untitled feature';
+      ui.newFeature=null;closeDrawer();renderReleases();renderMain();saveSoon(300);
+      break;}
+    case 'cancel-new':
+      S.features=S.features.filter(function(f){return f.id!==fid;});
+      ui.newFeature=null;ui.drawer=null;rerender();if(dirty)saveSoon(300);
+      break;
     case 'create-board':{
       b.disabled=true;
       var id=newBoardId(),m3=document.getElementById('share-msg');
