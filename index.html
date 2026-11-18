@@ -640,7 +640,11 @@ document.addEventListener('click',function(e){
         try{history.replaceState(null,'','?board='+encodeURIComponent(id));}catch(e){}
         setInterval(pull,15000);
         paintSave();renderDrawer();
-      }).catch(function(){b.disabled=false;if(m3)m3.textContent='Could not reach the database. Check config.js and that setup.sql was run, then try again.';});
+      }).catch(function(err){
+        b.disabled=false;
+        var detail=String((err&&err.message)||err||'').slice(0,300);
+        if(m3)m3.textContent='Could not save to the database. Check config.js and that setup.sql was run, then try again. Details: '+detail;
+      });
       break;}
     case 'copy-link':{
       var inp=document.getElementById('share-link'),m4=document.getElementById('share-msg');
