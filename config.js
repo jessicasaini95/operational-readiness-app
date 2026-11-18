@@ -9,6 +9,6 @@
 // saving one board at a time, by its link (see supabase/setup.sql).
 // Never put the service_role or secret key here.
 window.OR_CONFIG = {
-  supabaseUrl: '',
-  supabaseAnonKey: ''
+  supabaseUrl: 'https://uibqjtoviszxgdzgenpz.supabase.co',
+  supabaseAnonKey: 'sb_publishable_Qbetw1E8pqyw7ETRKrWdHg_-1m6lWvb'
 };
