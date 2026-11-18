@@ -563,7 +563,7 @@ function renderShell(){
   app.innerHTML=
     '<header class="top"><div class="brand">'+MARK+'<h1>'+esc(TITLE)+'</h1><span id="save" class="save" aria-live="polite"></span></div>'+
     '<div class="tools">'+
-      '<label class="search"><span class="sr">Search features</span><input id="q" type="search" placeholder="Search features or owners" value="'+esc(ui.search)+'"></label>'+
+      '<label class="search"><span class="sr">Search features</span><input id="q" type="search" placeholder="Search features" title="Search by feature, owner or release" value="'+esc(ui.search)+'"></label>'+
       '<label class="sel" for="rel">Release <select id="rel"></select></label>'+
       '<button class="btn" data-act="cats">Edit categories</button>'+
       '<button class="btn" data-act="report">Status report</button>'+
