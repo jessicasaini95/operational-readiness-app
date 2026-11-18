@@ -40,19 +40,44 @@ A feature's readiness is the share of its applicable categories marked **Ready**
 
 ## Running it
 
-The whole app is one file, `index.html`, with no build step and no dependencies. Fonts load from Google Fonts.
+It's a static site with no build step and no dependencies. Fonts load from Google Fonts.
 
 - **Locally:** open `index.html` in a browser.
-- **GitHub Pages:** in the repo go to *Settings → Pages*, choose *Deploy from a branch*, then pick `main` and `/ (root)`. The site appears at `https://<user>.github.io/operational-readiness-app/`.
-- **Your own domain:** host the file on Netlify, Vercel, Cloudflare Pages or GitHub Pages, and point your domain at it.
+- **Hosting:** deploy the repo root as a static site (no build command, output directory `/`) on any static host, such as GitHub Pages, Netlify, Vercel or Cloudflare Pages.
+- **Live site:** https://operational-readiness.app
+
+| File | What it is |
+|---|---|
+| `index.html` | The app |
+| `config.js` | Database connection settings (empty means browser-only saving) |
+| `supabase/setup.sql` | One-time database setup |
+| `og.png`, `favicon.svg`, `apple-touch-icon.png` | Link preview image and icons |
+| `assets/og-source.html` | Source for `og.png` |
 
 ## Where data is saved
 
-Right now data is saved in the browser's `localStorage`, so each person on each browser has their own copy. To back up a tracker, move it to another machine, or share a snapshot, use **Export → Backup (JSON)** and restore it with **Restore from a backup**.
+**Without a database** (`config.js` left empty), each browser keeps its own copy in `localStorage`.
 
-**Export** also produces a CSV for spreadsheets and a Markdown summary of blockers and unassessed items for tickets, chat or a wiki.
+**With Supabase** connected, a **Share** button appears. It creates a shared board saved online, with a link like `/?board=<id>`. Everyone with the link sees the same board and can edit it, and changes from other people appear within about 15 seconds. Visiting the site without a board link still gives you a private, browser-only tracker with example data, which works as a demo for visitors.
 
-For a shared team tracker, the next step is a small backend, such as Supabase or Firebase, or a Node server with a database. The app keeps all of its data in one JSON object, which makes that change straightforward. All saving happens in the `save()` function.
+### Connecting Supabase (about 5 minutes, free tier)
+
+1. Create a free account at [supabase.com](https://supabase.com) and start a new project.
+2. Open **SQL Editor → New query**, paste in the contents of `supabase/setup.sql`, and click **Run**.
+3. Open **Project Settings → API** and copy the **Project URL** and the **anon public** key (newer projects call it the **publishable** key).
+4. Paste both into `config.js`, then commit and push.
+
+The public key is meant to be visible in the browser. The database doesn't allow it to read the table or list boards: it can only load or save a single board whose id it already knows, and that id is a 24-character random string kept in the board's link. Treat a board link like a shared document link. Never put the `service_role` or secret key in `config.js`.
+
+Two people editing at the same moment is handled as last-save-wins.
+
+### Backups and exports
+
+**Export → Backup (JSON)** downloads the whole tracker, and **Restore from a backup** loads one back in. **Export** also produces a CSV for spreadsheets, and a Markdown summary of blockers and unassessed items for tickets, chat or a wiki.
+
+## Link previews
+
+The `og:` and `twitter:` tags in `index.html` point to `https://operational-readiness.app/og.png`. If the site moves to another domain, update those URLs and the `canonical` link.
 
 ## Licence
 

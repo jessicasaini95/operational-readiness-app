@@ -4,6 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Operational Readiness</title>
+<meta name="description" content="Track whether every feature in a release is ready to ship: documentation, data migration, deployment, configuration, dependencies, rollback, observability and more.">
+<meta name="theme-color" content="#0a6683">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="canonical" href="https://operational-readiness.app/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Operational Readiness">
+<meta property="og:title" content="Operational Readiness">
+<meta property="og:description" content="Know whether every feature is ready to ship: docs, migrations, deployment, config, dependencies and more.">
+<meta property="og:url" content="https://operational-readiness.app/">
+<meta property="og:image" content="https://operational-readiness.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A readiness grid of features against categories, with Ready, In progress and Blocked statuses.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Operational Readiness">
+<meta name="twitter:description" content="Know whether every feature is ready to ship: docs, migrations, deployment, config, dependencies and more.">
+<meta name="twitter:image" content="https://operational-readiness.app/og.png">
+<script src="config.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style id="css">
@@ -156,6 +175,11 @@ legend,.lab{font:600 12px var(--font-cond);color:var(--muted);text-transform:upp
 .tabs .btn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
 .out{width:100%;min-height:320px;font:12px/1.5 var(--font-mono);border:1px solid var(--line);border-radius:6px;background:var(--surface-2);padding:10px;resize:vertical}
 .openlink{font-size:13px;color:var(--accent);word-break:break-all}
+.foot{padding:0 20px 28px;color:var(--muted);font-size:12.5px}
+.foot a{color:var(--accent);text-underline-offset:2px}
+.linkrow{display:flex;gap:8px}
+.linkrow input{flex:1;min-width:0;border:1px solid var(--line);background:var(--surface-2);border-radius:6px;padding:8px 10px;font:12.5px var(--font-mono)}
+.note{margin:0;max-width:60ch;line-height:1.5}
 
 @media (max-width:640px){
   .top{padding:10px 14px} main{padding:14px 14px 32px}
@@ -301,6 +325,27 @@ function rememberUI(){
     sessionStorage.setItem('or-ui',JSON.stringify({search:ui.search,release:ui.release,drawer:ui.drawer,exportKind:ui.exportKind,sx:gw?gw.scrollLeft:0,sy:window.scrollY}));
   }catch(e){}
 }
+/* Shared boards are stored in Supabase when config.js sets OR_CONFIG. See README. */
+var CFG=window.OR_CONFIG||{};
+function cloudOn(){return !!(CFG.supabaseUrl&&CFG.supabaseAnonKey);}
+var BOARD='';try{BOARD=new URLSearchParams(location.search).get('board')||'';}catch(e){}
+var lastRemote=null;
+function rpc(fn,body){
+  var h={'apikey':CFG.supabaseAnonKey,'Content-Type':'application/json'};
+  if(/^eyJ/.test(CFG.supabaseAnonKey))h.Authorization='Bearer '+CFG.supabaseAnonKey;
+  return fetch(String(CFG.supabaseUrl).replace(/\/+$/,'')+'/rest/v1/rpc/'+fn,{method:'POST',headers:h,body:JSON.stringify(body)})
+    .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error(r.status+' '+t);});return r.json();});
+}
+function newBoardId(){var a=new Uint8Array(18);crypto.getRandomValues(a);return btoa(String.fromCharCode.apply(null,a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function boardLink(){return location.origin+location.pathname+'?board='+encodeURIComponent(BOARD);}
+function pull(){
+  if(mode!=='cloud'||dirty||saveState==='saving')return;
+  var a=document.activeElement;if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.id!=='q')return;
+  rpc('get_board',{p_id:BOARD}).then(function(rows){
+    var row=rows&&rows[0];if(!row||dirty)return;
+    if(row.updated_at!==lastRemote){lastRemote=row.updated_at;S=row.data;rerender();}
+  }).catch(function(){});
+}
 function markDirty(){dirty=true;if(saveState!=='saving'){saveState='dirty';paintSave();}}
 function saveSoon(ms){
   markDirty();
@@ -312,6 +357,13 @@ function save(){
   if(mode==='pending'){saveTimer=setTimeout(save,800);return;}
   dirty=false;
   S.updated=new Date().toISOString();
+  if(mode==='cloud'){
+    saveState='saving';paintSave();
+    rpc('save_board',{p_id:BOARD,p_data:S}).then(function(ts){lastRemote=ts;if(!dirty){saveState='cloud';paintSave();}}).catch(function(){
+      dirty=true;saveState='error';paintSave();clearTimeout(saveTimer);saveTimer=setTimeout(save,8000);
+    });
+    return;
+  }
   if(mode==='live'&&!readOnly){
     saveState='saving';paintSave();
     rememberUI();
@@ -329,7 +381,8 @@ function save(){
 }
 function paintSave(){
   var el=document.getElementById('save');if(!el)return;
-  var t={saved:'All changes saved',dirty:'Unsaved changes',saving:'Saving…',local:'Saved in this browser only',nolocal:'Changes are not being saved here',ro:'View only',error:'Could not save. Your next change will retry.'}[saveState]||'';
+  var t={saved:'All changes saved',dirty:'Unsaved changes',saving:'Saving…',local:'Saved in this browser only',nolocal:'Changes are not being saved here',ro:'View only',error:'Could not save. Retrying shortly.',loading:'Loading shared board…',newboard:'New shared board. Your first change creates it.'}[saveState]||'';
+  if(saveState==='cloud'){t='Saved to shared board'+(S.updated?' '+new Date(S.updated).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'');}
   if(saveState==='saved'&&S.updated){t='Saved '+new Date(S.updated).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}
   el.textContent=t;
   el.className='save'+(saveState==='dirty'||saveState==='error'?' dirty':'');
@@ -344,8 +397,11 @@ function renderShell(){
       '<label class="sel" for="rel">Release <select id="rel"></select></label>'+
       '<button class="btn" data-act="cats">Edit categories</button>'+
       '<button class="btn" data-act="export">Export</button>'+
+      (cloudOn()?'<button class="btn" data-act="share">Share</button>':'')+
       '<button class="btn primary" data-act="add-feature">Add feature</button>'+
-    '</div></header><main id="main"></main><div id="drawer-root"></div>';
+    '</div></header><main id="main"></main>'+
+    '<footer class="foot">Operational Readiness is an open-source release readiness tracker. <a href="https://github.com/jessicasaini95/operational-readiness-app">Source on GitHub</a></footer>'+
+    '<div id="drawer-root"></div>';
   paintSave();
 }
 function renderReleases(){
@@ -425,6 +481,7 @@ function renderDrawer(){
   else if(d.type==='feature'){var f2=findF(d.f);if(!f2){ui.drawer=null;root.innerHTML='';return;}inner=drawerFeature(f2);}
   else if(d.type==='cats')inner=drawerCats();
   else if(d.type==='export')inner=drawerExport();
+  else if(d.type==='share')inner=drawerShare();
   root.innerHTML='<div class="scrim" data-act="close"></div><aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="d-title">'+inner+'</aside>';
 }
 function head(eyebrow,title,q){
@@ -515,6 +572,18 @@ function drawerExport(){
     '<div><p class="lab">Restore from a backup</p><label class="field" for="imp-file">Choose a .json backup. This replaces everything in the tracker.<input id="imp-file" type="file" accept=".json,application/json"></label><p id="imp-msg" class="hint" aria-live="polite"></p></div></div>';
 }
 
+function drawerShare(){
+  if(mode!=='cloud'){
+    return head('Share','Save this tracker online','Right now this tracker is saved only in this browser. A shared board saves it online, so it is there on any device and your team sees the same thing.')+
+      '<div class="d-body"><p class="note">Creating a board copies everything you see here into it. You then get a link: anyone with the link can view and edit the board, so share it only with your team.</p>'+
+      '<div><button class="btn primary" data-act="create-board">Create shared board</button></div><p id="share-msg" class="hint" aria-live="polite"></p></div>';
+  }
+  return head('Share','Shared board link','Everyone with this link sees the same board, and changes save online for everyone.')+
+    '<div class="d-body"><div class="linkrow"><label class="sr" for="share-link">Board link</label><input id="share-link" readonly value="'+esc(boardLink())+'"><button class="btn primary" data-act="copy-link">Copy link</button></div>'+
+    '<p id="share-msg" class="hint" aria-live="polite"></p>'+
+    '<p class="note">Anyone with this link can edit the board. Changes from other people appear here within about 15 seconds. Bookmark the link: it is the only way back to this board.</p></div>';
+}
+
 /* ---------- actions ---------- */
 function rerender(){renderReleases();renderMain();renderDrawer();}
 function newCatItems(old,text){
@@ -560,6 +629,24 @@ document.addEventListener('click',function(e){
     case 'add-cat':{
       var c=mkCat('New category','What question should this answer?',[]);S.categories.push(c);rerender();saveSoon(4000);
       var el=document.getElementById('cn-'+c.id);if(el){el.scrollIntoView({block:'center'});el.focus();el.select();}
+      break;}
+    case 'share':openDrawer({type:'share'});break;
+    case 'create-board':{
+      b.disabled=true;
+      var id=newBoardId(),m3=document.getElementById('share-msg');
+      S.updated=new Date().toISOString();
+      rpc('save_board',{p_id:id,p_data:S}).then(function(ts){
+        BOARD=id;mode='cloud';lastRemote=ts;dirty=false;saveState='cloud';
+        try{history.replaceState(null,'','?board='+encodeURIComponent(id));}catch(e){}
+        setInterval(pull,15000);
+        paintSave();renderDrawer();
+      }).catch(function(){b.disabled=false;if(m3)m3.textContent='Could not reach the database. Check config.js and that setup.sql was run, then try again.';});
+      break;}
+    case 'copy-link':{
+      var inp=document.getElementById('share-link'),m4=document.getElementById('share-msg');
+      var ok=function(){if(m4)m4.textContent='Link copied.';};
+      var no=function(){if(inp){inp.focus();inp.select();}if(m4)m4.textContent='Your browser blocked copying. The link is selected: press Ctrl+C or Cmd+C.';};
+      try{navigator.clipboard.writeText(inp.value).then(ok,no);}catch(err){no();}
       break;}
     case 'exp-kind':ui.exportKind=b.getAttribute('data-k');renderDrawer();break;
     case 'copy':{
@@ -639,17 +726,27 @@ renderMain();
 renderDrawer();
 if(ui._sx||ui._sy){var gw0=document.querySelector('.grid-wrap');if(gw0)gw0.scrollLeft=ui._sx;window.scrollTo(0,ui._sy);}
 
-var useP=null;
-try{useP=(window.claude&&typeof window.claude.use==='function')?window.claude.use('artifact'):null;}catch(e){useP=null;}
-Promise.resolve(useP).then(function(a){
-  art=a||null;mode=art?'live':'local';
-  if(!art){
-    if(fresh){try{var ls=localStorage.getItem('or-state');if(ls){S=JSON.parse(ls);rerender();}}catch(e){}}
-    saveState=S.updated||!fresh?'local':'saved';
-    if(fresh&&!S.updated)saveState='local';
-  }
-  paintSave();
-},function(){mode='local';paintSave();});
+if(cloudOn()&&BOARD){
+  mode='cloud';saveState='loading';paintSave();
+  rpc('get_board',{p_id:BOARD}).then(function(rows){
+    var row=rows&&rows[0];
+    if(row&&row.data&&Array.isArray(row.data.features)){S=row.data;lastRemote=row.updated_at;saveState='cloud';rerender();}
+    else saveState='newboard';
+    paintSave();
+  }).catch(function(){saveState='error';paintSave();});
+  setInterval(pull,15000);
+}else{
+  var useP=null;
+  try{useP=(window.claude&&typeof window.claude.use==='function')?window.claude.use('artifact'):null;}catch(e){useP=null;}
+  Promise.resolve(useP).then(function(a){
+    art=a||null;mode=art?'live':'local';
+    if(!art){
+      if(fresh){try{var ls=localStorage.getItem('or-state');if(ls){S=JSON.parse(ls);rerender();}}catch(e){}}
+      saveState='local';
+    }
+    paintSave();
+  },function(){mode='local';saveState='local';paintSave();});
+}
 })();
 </script>
 </body>
