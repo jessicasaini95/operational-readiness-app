@@ -342,7 +342,7 @@ body{background:radial-gradient(1400px 460px at 12% -160px,color-mix(in srgb,var
 .cta-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .banner.cta .hint{flex-basis:100%;margin:0}
 .banner.cta .hint:empty{display:none}
-.top .btn.accent{border-color:#52b9d8;color:#bfe9f5}
+.top .btn[hidden]{display:none}
 .created{margin:0;padding:10px 12px;border-radius:8px;background:color-mix(in srgb,var(--ok) 12%,var(--surface));color:var(--ink);border:1px solid color-mix(in srgb,var(--ok) 35%,var(--line))}
 .foot a{color:var(--accent);text-underline-offset:2px}
 .linkrow{display:flex;gap:8px}
@@ -547,7 +547,7 @@ function save(){
     paintSave();
   }
 }
-function paintShareBtn(){var sb=document.getElementById('share-btn');if(sb){sb.textContent=mode==='cloud'?'Share link':'Create board';sb.classList.toggle('accent',mode!=='cloud');}}
+function paintShareBtn(){var sb=document.getElementById('share-btn');if(sb){sb.hidden=mode!=='cloud';sb.textContent='Share link';}}
 function paintSave(){
   var el=document.getElementById('save');if(!el)return;
   var t={saved:'All changes saved',dirty:'Unsaved changes',saving:'Saving…',local:'Saved in this browser only',nolocal:'Changes are not being saved here',ro:'View only',error:'Could not save. Retrying shortly.',loading:'Loading shared board…',newboard:'New shared board. Your first change creates it.'}[saveState]||'';
@@ -568,7 +568,7 @@ function renderShell(){
       '<button class="btn" data-act="cats">Edit categories</button>'+
       '<button class="btn" data-act="report">Status report</button>'+
       '<button class="btn" data-act="export">Export</button>'+
-      (cloudOn()?'<button class="btn" id="share-btn" data-act="share">Create board</button>':'')+
+      (cloudOn()?'<button class="btn" id="share-btn" data-act="share" hidden>Share link</button>':'')+
       '<button class="btn primary" data-act="add-feature">Add feature</button>'+
     '</div></header><main id="main"></main>'+
     '<footer class="foot">Operational Readiness is an open-source release readiness tracker. <a href="https://github.com/jessicasaini95/operational-readiness-app">Source on GitHub</a></footer>'+
