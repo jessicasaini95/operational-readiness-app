@@ -343,6 +343,10 @@ body{background:radial-gradient(1400px 460px at 12% -160px,color-mix(in srgb,var
 .banner.cta .hint{flex-basis:100%;margin:0}
 .banner.cta .hint:empty{display:none}
 .top .btn[hidden]{display:none}
+.choice{display:flex;gap:14px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:14px 16px;flex-wrap:wrap}
+.choice>div{flex:1 1 220px}
+.choice strong{display:block;margin-bottom:2px}
+.choice p{margin:0;color:var(--muted);font-size:13.5px;line-height:1.45}
 .created{margin:0;padding:10px 12px;border-radius:8px;background:color-mix(in srgb,var(--ok) 12%,var(--surface));color:var(--ink);border:1px solid color-mix(in srgb,var(--ok) 35%,var(--line))}
 .foot a{color:var(--accent);text-underline-offset:2px}
 .linkrow{display:flex;gap:8px}
@@ -403,6 +407,22 @@ function defaultCategories(){return [
   mkCat('Customer communication','Do customers know what is changing and when?',['Announcement drafted','Admins told about any actions they must take','Maintenance window communicated'])
 ];}
 
+function restoreExamples(){
+  var demo=seed(),byName={};
+  S.categories.forEach(function(c){byName[c.name]=c;});
+  demo.features.forEach(function(f){
+    var cells={};
+    demo.categories.forEach(function(dc){
+      var mine=byName[dc.name];if(!mine||!f.cells[dc.id])return;
+      var src=f.cells[dc.id],cell={status:src.status,checks:{},notes:src.notes,owner:'',due:'',link:''};
+      var done=dc.checklist.filter(function(it){return src.checks[it.id];}).length;
+      mine.checklist.slice(0,done).forEach(function(it){cell.checks[it.id]=true;});
+      cells[mine.id]=cell;
+    });
+    f.cells=cells;f.id=uid();
+  });
+  S.features=demo.features.concat(S.features.filter(function(f){return !f.example;}));
+}
 function seed(){
   var cats=defaultCategories();
   function mk(name,owner,release,date,desc,codes,notes){
@@ -520,6 +540,8 @@ function rpc(fn,body){
 }
 function newBoardId(){var a=new Uint8Array(18);crypto.getRandomValues(a);return btoa(String.fromCharCode.apply(null,a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function boardLink(){return location.origin+location.pathname+'?board='+encodeURIComponent(BOARD);}
+var pollTimer=null;
+function startPolling(){if(!pollTimer)pollTimer=setInterval(pull,15000);}
 function pull(){
   if(mode!=='cloud'||dirty||saveState==='saving')return;
   var a=document.activeElement;if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.id!=='q')return;
@@ -667,9 +689,11 @@ function renderMain(){
   var hasEx=S.features.some(function(f){return f.example;});
   if(cloudOn()&&mode!=='cloud'&&!readOnly){
     html+='<div class="banner cta"><div class="cta-text"><strong>'+(hasEx?'You are looking at example data, saved only in this browser.':'This tracker is saved only in this browser.')+'</strong><span>Create your own board to save your work online, open it on any device, and share it with your team.</span></div>'+
-      '<div class="cta-actions">'+(hasEx?'<button class="btn small" data-act="clear-examples">Remove examples</button>':'')+'<button class="btn primary" data-act="create-board">Create my board</button></div><p id="cta-msg" class="hint" aria-live="polite"></p></div>';
+      '<div class="cta-actions">'+(hasEx?'<button class="btn small" data-act="clear-examples">Remove examples</button>':'<button class="btn small" data-act="restore-examples">Restore examples</button>')+'<button class="btn primary" data-act="share">Create my board</button></div></div>';
   }else if(hasEx){
     html+='<div class="banner"><span>The features below are examples so you can see how a release looks. Replace them with your own when you are ready.</span><button class="btn small" data-act="clear-examples">Remove examples</button></div>';
+  }else if(mode!=='cloud'&&!S.features.length){
+    html+='<div class="banner"><span>Want to see how it works first?</span><button class="btn small" data-act="restore-examples">Load examples</button></div>';
   }
   html+=summary(feats)+matrix(feats);
   main.innerHTML=html;
@@ -784,15 +808,23 @@ function drawerExport(){
 }
 
 function drawerShare(){
+  var nEx=S.features.filter(function(f){return f.example;}).length,nAll=S.features.length;
   if(mode!=='cloud'){
+    var copyDesc=nAll?'Start with everything on this page: '+plural(nAll,'feature')+(nEx?', including '+(nEx===nAll?'all ':'')+plural(nEx,'example')+',':'')+' and your categories.':'Start with your current categories. There are no features on this page yet.';
     return head('Your board','Create your own board','Right now this tracker is saved only in this browser. Your own board saves online, so it is there on any device and your team sees the same thing.')+
-      '<div class="d-body"><p class="note">Your board keeps your categories and any features you added. The example features are left out. You then get a link to your board: anyone with the link can view and edit it, so share it only with your team.</p>'+
-      '<div><button class="btn primary" data-act="create-board">Create my board</button></div><p id="share-msg" class="hint" aria-live="polite"></p></div>';
+      '<div class="d-body">'+
+        '<div class="choice"><div><strong>Blank board</strong><p>Start fresh with your categories and no features. Best for tracking a real release.</p></div><button class="btn primary" data-act="create-board" data-k="blank">Create blank board</button></div>'+
+        '<div class="choice"><div><strong>Copy this page</strong><p>'+esc(copyDesc)+' Good for showing your team how it works.</p></div><button class="btn" data-act="create-board" data-k="copy">Create from this page</button></div>'+
+        '<p id="share-msg" class="hint" aria-live="polite"></p>'+
+        '<p class="note">Either way you get a link to your board. Anyone with the link can view and edit it, so share it only with your team.</p></div>';
   }
+  var pend=ui.pendingDelete==='newboard';
   return head('Your board','Share your board','Everyone with this link sees the same board, and changes save online for everyone.')+
     '<div class="d-body">'+(ui.justCreated?'<p class="created">Your board is ready and saved online. Bookmark this page or copy the link below: it is the way back to your board.</p>':'')+'<div class="linkrow"><label class="sr" for="share-link">Board link</label><input id="share-link" readonly value="'+esc(boardLink())+'"><button class="btn primary" data-act="copy-link">Copy link</button></div>'+
     '<p id="share-msg" class="hint" aria-live="polite"></p>'+
-    '<p class="note">Anyone with this link can edit the board. Changes from other people appear here within about 15 seconds. Bookmark the link: it is the only way back to this board.</p></div>';
+    '<p class="note">Anyone with this link can edit the board. Changes from other people appear here within about 15 seconds. Bookmark the link: it is the only way back to this board.</p>'+
+    '<div class="choice"><div><strong>Start another board</strong><p>'+(pend?'Copy this board\'s link first. You will leave this board, and the link is the only way back.':'A new blank board with your categories and its own link. This board stays as it is.')+'</p></div>'+
+      (pend?'<span style="display:flex;gap:6px"><button class="btn small" data-act="cancel-del">Cancel</button><button class="btn small primary" data-act="create-board" data-k="blank">Create it</button></span>':'<button class="btn" data-act="ask-del" data-f="newboard">Start another blank board</button>')+'</div></div>';
 }
 
 /* ---------- status report ---------- */
@@ -918,6 +950,7 @@ document.addEventListener('click',function(e){
       openDrawer({type:'feature',f:f.id});ui.newFeature=f.id;renderDrawer();renderReleases();renderMain();
       var n=document.getElementById('ff-name');if(n){n.focus();n.select();}
       break;}
+    case 'restore-examples':restoreExamples();rerender();saveSoon(300);break;
     case 'clear-examples':S.features=S.features.filter(function(f){return !f.example;});rerender();saveSoon(300);break;
     case 'set-status':{
       if(!d||d.type!=='cell')break;
@@ -962,12 +995,12 @@ document.addEventListener('click',function(e){
       b.disabled=true;
       var id=newBoardId(),m3=document.getElementById('share-msg')||document.getElementById('cta-msg');
       var mine=JSON.parse(JSON.stringify(S));
-      mine.features=mine.features.filter(function(f){return !f.example;});
+      if(b.getAttribute('data-k')==='blank'){mine.features=[];mine.reportNotes={};}
       mine.updated=new Date().toISOString();
       rpc('save_board',{p_id:id,p_data:mine}).then(function(ts){
         S=mine;BOARD=id;mode='cloud';lastRemote=ts;dirty=false;saveState='cloud';
         try{history.replaceState(null,'','?board='+encodeURIComponent(id));}catch(e){}
-        setInterval(pull,15000);
+        startPolling();ui.pendingDelete=null;ui.release='all';
         ui.drawer={type:'share'};ui.justCreated=true;
         paintSave();paintShareBtn();rerender();
       }).catch(function(err){
@@ -1076,7 +1109,7 @@ if(cloudOn()&&BOARD){
     else saveState='newboard';
     paintSave();
   }).catch(function(){saveState='error';paintSave();});
-  setInterval(pull,15000);
+  startPolling();
 }else{
   var useP=null;
   try{useP=(window.claude&&typeof window.claude.use==='function')?window.claude.use('artifact'):null;}catch(e){useP=null;}
