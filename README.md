@@ -44,7 +44,7 @@ It's a static site with no build step and no dependencies. Fonts load from Googl
 
 - **Locally:** open `index.html` in a browser.
 - **Hosting:** deploy the repo root as a static site (no build command, output directory `/`) on any static host, such as GitHub Pages, Netlify, Vercel or Cloudflare Pages.
-- **Live site:** https://operational-readiness.app
+- **Live site:** https://operational-readiness.app, deployed on Cloudflare Workers with no build command, deploy command `npx wrangler deploy` and root directory `/`. Every push to `main` deploys automatically.
 
 | File | What it is |
 |---|---|
