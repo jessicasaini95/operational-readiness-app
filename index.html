@@ -419,15 +419,29 @@ function seed(){
     });
     return {id:uid(),name:name,owner:owner,release:release,targetDate:date,description:desc,example:true,cells:cells};
   }
+  function dOff(n){var d=new Date();d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  var R1=dOff(65),R2=dOff(148),HF=dOff(16);
   var features=[
-    mk('Bulk CSV import','Priya S.','2027.1','2027-01-22','Import thousands of records from a spreadsheet in one run.',
+    mk('Bulk CSV import','Priya S.','2027.1',R1,'Import thousands of records from a spreadsheet in one run.',
       'PBPRPTPRPPNRTT',{1:'Waiting on DBA review of the index rebuild. Dry run took 3h on the largest tenant, which is over the 2h window.',5:'Rollback depends on the migration restore path.'}),
-    mk('SSO with Microsoft Entra ID','Marcus L.','2027.1','2027-01-22','Let customers sign in through their own identity provider.',
+    mk('SSO with Microsoft Entra ID','Marcus L.','2027.1',R1,'Let customers sign in through their own identity provider.',
       'RNRRBRRRNRRRRP',{4:'Needs the platform team to upgrade the auth library to 6.x first. They have committed to Dec 12.'}),
-    mk('Search on new index engine','Dana K.','2027.1','2027-01-22','Move product search to the new indexing engine.',
+    mk('Search on new index engine','Dana K.','2027.1',R1,'Move product search to the new indexing engine.',
       'RRRRRRRRRRRRRR'),
-    mk('Reporting API','Tomás R.','2027.2','2027-04-15','Public REST API for pulling reports into BI tools.',
-      'TNPTPUTPUTPTUU')
+    mk('Audit log export','Aisha M.','2027.1',R1,'Let admins export a full audit trail for compliance reviews.',
+      'PNRRRRPRRPRRPT'),
+    mk('Dark mode','Lena W.','2027.1',R1,'A dark theme across the web app, following the system setting.',
+      'RNRRNRNRRPNRPP'),
+    mk('Billing: annual plans','Omar H.','2026.12',HF,'Offer annual billing with a discount on every paid plan.',
+      'PRPPBPRPRPRPTT',{4:'Waiting on the payment provider to enable annual price IDs in production. Support ticket opened Nov 10.',13:'Pricing page and email copy drafted, waiting on final discount.'}),
+    mk('Notification preferences','Chen Y.','2026.12',HF,'Let people choose which emails and alerts they receive.',
+      'RRRRRRRRRRRPRR'),
+    mk('Reporting API','Tomás R.','2027.2',R2,'Public REST API for pulling reports into BI tools.',
+      'TNPTPUTPUTPTUU'),
+    mk('Data retention policies','Grace O.','2027.2',R2,'Automatically delete data after a retention period each customer sets.',
+      'TPTPPTTBTTPTTT',{7:'Legal review of retention periods for EU customers is scheduled for Jan 8.'}),
+    mk('Mobile offline mode','Sam P.','2027.2',R2,'Keep working in the mobile app without a connection and sync later.',
+      'UUTTUUUTUUUUUU')
   ];
   return {version:1,categories:cats,features:features,updated:null};
 }
@@ -655,7 +669,7 @@ function renderMain(){
     html+='<div class="banner cta"><div class="cta-text"><strong>'+(hasEx?'You are looking at example data, saved only in this browser.':'This tracker is saved only in this browser.')+'</strong><span>Create your own board to save your work online, open it on any device, and share it with your team.</span></div>'+
       '<div class="cta-actions">'+(hasEx?'<button class="btn small" data-act="clear-examples">Remove examples</button>':'')+'<button class="btn primary" data-act="create-board">Create my board</button></div><p id="cta-msg" class="hint" aria-live="polite"></p></div>';
   }else if(hasEx){
-    html+='<div class="banner"><span>Some features below are examples so you can see how a release looks. Replace them with your own when you are ready.</span><button class="btn small" data-act="clear-examples">Remove examples</button></div>';
+    html+='<div class="banner"><span>The features below are examples so you can see how a release looks. Replace them with your own when you are ready.</span><button class="btn small" data-act="clear-examples">Remove examples</button></div>';
   }
   html+=summary(feats)+matrix(feats);
   main.innerHTML=html;
